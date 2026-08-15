@@ -1408,6 +1408,11 @@ const EMBEDDED_FIREBASE_CONFIG = {
 };
 
 // ══════════════════════════════════════════════
+// UNIQUE CLIENT SESSION ID FOR REAL-TIME SYNC
+// ══════════════════════════════════════════════
+const CLIENT_SESSION_ID = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+// ══════════════════════════════════════════════
 // FIREBASE CLOUD SERVICE (COMPAT SDK)
 // ══════════════════════════════════════════════
 const firebaseService = {
@@ -1416,6 +1421,7 @@ const firebaseService = {
     db: null,
     config: EMBEDDED_FIREBASE_CONFIG,
     autoSync: true,
+    projectsUnsubscribe: null,
 
     init() {
         let cfgToUse = EMBEDDED_FIREBASE_CONFIG;
@@ -1437,6 +1443,9 @@ const firebaseService = {
 
         if (success) {
             this.checkAndLoadGlobalOpenAIKey();
+            if (typeof projectManager !== 'undefined') {
+                projectManager.startRealtimeSync();
+            }
         }
         this.updateUIStatus();
     },
@@ -1458,6 +1467,32 @@ const firebaseService = {
             this.isConnected = false;
             this.updateUIStatus();
             return false;
+        }
+    },
+
+    listenToProjects(callback) {
+        if (!this.isConnected || !this.db) return null;
+        try {
+            if (this.projectsUnsubscribe) {
+                this.projectsUnsubscribe();
+            }
+            this.projectsUnsubscribe = this.db.collection('transcriber_projects')
+                .onSnapshot((snapshot) => {
+                    const cloudProjects = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data && data.id) {
+                            cloudProjects.push(data);
+                        }
+                    });
+                    if (callback) callback(cloudProjects, snapshot.metadata.hasPendingWrites);
+                }, (error) => {
+                    console.warn('Projects real-time snapshot error:', error);
+                });
+            return this.projectsUnsubscribe;
+        } catch(e) {
+            console.warn('Failed to attach Firestore snapshot listener:', e);
+            return null;
         }
     },
 
@@ -1632,8 +1667,9 @@ const firebaseService = {
             }
             showToast('تم ربط Firebase والمزامنة السحابية بنجاح ✓', 'success', 'fa-cloud');
             
-            // Sync all existing local projects to Firebase
+            // Start real-time sync
             if (typeof projectManager !== 'undefined') {
+                projectManager.startRealtimeSync();
                 projectManager.syncAllProjectsToCloud();
             }
 
@@ -1652,6 +1688,10 @@ const firebaseService = {
 
     disconnect() {
         if (!confirm('هل تريد إعادة تعيين إعدادات Firebase والعودة للتكوين الافتراضي المدمج؟')) return;
+        if (this.projectsUnsubscribe) {
+            this.projectsUnsubscribe();
+            this.projectsUnsubscribe = null;
+        }
         localStorage.removeItem('transcriber_firebase_cfg');
         this.config = EMBEDDED_FIREBASE_CONFIG;
         this.init();
@@ -1672,6 +1712,7 @@ const firebaseService = {
             const docRef = this.db.collection('transcriber_projects').doc(proj.id);
             await docRef.set({
                 ...proj,
+                clientId: CLIENT_SESSION_ID,
                 cloudUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
         } catch (e) {
@@ -1916,7 +1957,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ══════════════════════════════════════════════
-// PROJECTS MANAGER (GRID / LIST VIEWS, SORT, SYNC)
+// PROJECTS MANAGER (GRID / LIST VIEWS, SORT, REAL-TIME SYNC)
 // ══════════════════════════════════════════════
 class ProjectManager {
     constructor() {
@@ -1926,6 +1967,7 @@ class ProjectManager {
         this.sortMode = 'updated_desc';
         this.searchQuery = '';
         this.autoSaveTimer = null;
+        this.isApplyingRemoteUpdate = false;
     }
 
     init() {
@@ -1944,8 +1986,121 @@ class ProjectManager {
         this.openHub();
         this.renderHub();
         
-        // Sync with Firebase in background
-        this.syncFromCloud();
+        // Start real-time sync listener with Firebase
+        if (firebaseService.isConnected) {
+            this.startRealtimeSync();
+        }
+    }
+
+    startRealtimeSync() {
+        if (!firebaseService.isConnected) return;
+        firebaseService.listenToProjects((cloudProjects, hasPendingWrites) => {
+            this.handleRealtimeCloudUpdate(cloudProjects, hasPendingWrites);
+        });
+    }
+
+    handleRealtimeCloudUpdate(cloudProjects, hasPendingWrites) {
+        if (!cloudProjects || cloudProjects.length === 0) return;
+
+        let merged = false;
+        let activeProjectUpdated = false;
+
+        cloudProjects.forEach(cp => {
+            const idx = this.projects.findIndex(p => p.id === cp.id);
+            if (idx === -1) {
+                this.projects.push(cp);
+                merged = true;
+            } else {
+                const localProj = this.projects[idx];
+                const remoteUpdated = cp.updatedAt || 0;
+                const localUpdated = localProj.updatedAt || 0;
+
+                // If remote has newer data or was modified from another browser/client session
+                const isFromOtherClient = cp.clientId && cp.clientId !== CLIENT_SESSION_ID;
+                if (remoteUpdated > localUpdated || (isFromOtherClient && (remoteUpdated !== localUpdated || cp.rawText !== localProj.rawText || cp.pagesHtml !== localProj.pagesHtml))) {
+                    this.projects[idx] = cp;
+                    merged = true;
+                    if (this.currentProjectId === cp.id) {
+                        activeProjectUpdated = true;
+                    }
+                }
+            }
+        });
+
+        if (merged) {
+            this.saveLocalProjects();
+            this.renderHub();
+            this.updateProjectsCountBadge();
+
+            if (activeProjectUpdated && this.currentProjectId) {
+                const activeProj = this.currentProject;
+                if (activeProj) {
+                    this.applyRemoteUpdateToEditor(activeProj);
+                }
+            }
+        }
+    }
+
+    applyRemoteUpdateToEditor(proj) {
+        if (this.isApplyingRemoteUpdate) return;
+        this.isApplyingRemoteUpdate = true;
+
+        try {
+            const rawBox = document.getElementById('rawEditBox');
+            const container = document.getElementById('pagesContainer');
+            const titleEl = document.getElementById('currentProjectTitleDisplay');
+            const mobileTitleEl = document.getElementById('mobileCurrentProjectTitle');
+
+            if (titleEl) titleEl.textContent = proj.title || 'مشروع جديد';
+            if (mobileTitleEl) mobileTitleEl.textContent = proj.title || 'مشروع جديد';
+
+            const remoteRawHtml = proj.rawHtml || proj.rawText || '';
+            if (rawBox && rawBox.innerHTML !== remoteRawHtml) {
+                rawBox.innerHTML = remoteRawHtml;
+            }
+            finalText = proj.rawText || '';
+            formattedCharIndex = proj.formattedCharIndex || 0;
+            pageCounter = proj.pageCounter || 0;
+            secondsElapsed = proj.secondsElapsed || 0;
+            pages = JSON.parse(JSON.stringify(proj.pagesData || []));
+
+            const remotePagesHtml = proj.pagesHtml || '';
+            if (container && container.innerHTML !== remotePagesHtml) {
+                container.innerHTML = remotePagesHtml;
+                container.querySelectorAll('.section-body').forEach(secBody => {
+                    const pageSec = secBody.closest('.page-section');
+                    secBody.addEventListener('input', () => {
+                        updateNavPane();
+                        updateWordCount();
+                        syncSectionMargin(pageSec);
+                        historyManager.pushState('تعديل في الصفحة');
+                        projectManager.scheduleAutoSave();
+                    });
+                });
+                const allPages = container.querySelectorAll('.pdf-page');
+                activePageElement = allPages.length > 0 ? allPages[allPages.length - 1] : null;
+            }
+
+            const bookArea = document.getElementById('bookArea');
+            if (pages.length === 0) {
+                if (!document.getElementById('bookEmptyHint')) {
+                    const h = document.createElement('div'); h.id = 'bookEmptyHint'; h.className = 'book-empty-hint';
+                    h.innerHTML = '<div class="w-20 h-28 bg-gray-800 rounded-sm border border-gray-700 shadow-xl flex items-center justify-center mb-4"><i class="fa-solid fa-book-open text-4xl text-gray-600"></i></div><p class="text-lg font-bold text-gray-400">لم تُنشأ أي صفحة بعد</p><p class="text-sm text-gray-600 mt-1 max-w-xs">ابدأ التفريغ وسيظهر النص المنسق هنا بتنسيق كتابي أنيق.</p>';
+                    bookArea.insertBefore(h, document.getElementById('pagesContainer'));
+                }
+            } else {
+                document.getElementById('bookEmptyHint')?.remove();
+            }
+
+            updateWordCount();
+            updatePageCount();
+            updateNavPane();
+            document.getElementById('timerDisplay').textContent = fmtTs(secondsElapsed);
+
+            showToast(`تمت المزامنة وتحديث محتوى المشروع في الوقت الفعلي ✓`, 'info', 'fa-arrows-rotate');
+        } finally {
+            this.isApplyingRemoteUpdate = false;
+        }
     }
 
     loadStoredSettings() {
@@ -1996,6 +2151,7 @@ class ProjectManager {
             pageCount: 0,
             createdAt: Date.now(),
             updatedAt: Date.now(),
+            clientId: CLIENT_SESSION_ID,
             previewText: ''
         };
         this.projects.unshift(newProj);
@@ -2037,6 +2193,7 @@ class ProjectManager {
             pageCount: 0,
             createdAt: Date.now(),
             updatedAt: Date.now(),
+            clientId: CLIENT_SESSION_ID,
             previewText: ''
         };
 
@@ -2061,7 +2218,9 @@ class ProjectManager {
         localStorage.setItem('transcriber_active_project_id', id);
 
         const titleEl = document.getElementById('currentProjectTitleDisplay');
+        const mobileTitleEl = document.getElementById('mobileCurrentProjectTitle');
         if (titleEl) titleEl.textContent = proj.title;
+        if (mobileTitleEl) mobileTitleEl.textContent = proj.title;
 
         const rawBox = document.getElementById('rawEditBox');
         if (rawBox) rawBox.innerHTML = proj.rawHtml || proj.rawText || '';
@@ -2081,6 +2240,7 @@ class ProjectManager {
                     updateWordCount();
                     syncSectionMargin(pageSec);
                     historyManager.pushState('تعديل في الصفحة');
+                    projectManager.scheduleAutoSave();
                 });
             });
             const allPages = container.querySelectorAll('.pdf-page');
@@ -2111,7 +2271,7 @@ class ProjectManager {
     }
 
     saveCurrentProject(syncToCloud = true) {
-        if (!this.currentProjectId) return;
+        if (!this.currentProjectId || this.isApplyingRemoteUpdate) return;
         const proj = this.projects.find(p => p.id === this.currentProjectId);
         if (!proj) return;
 
@@ -2144,6 +2304,7 @@ class ProjectManager {
         proj.pageCount = pageCount;
         proj.previewText = preview;
         proj.updatedAt = Date.now();
+        proj.clientId = CLIENT_SESSION_ID;
 
         this.saveLocalProjects();
 
@@ -2153,10 +2314,11 @@ class ProjectManager {
     }
 
     scheduleAutoSave() {
+        if (this.isApplyingRemoteUpdate) return;
         clearTimeout(this.autoSaveTimer);
         this.autoSaveTimer = setTimeout(() => {
             this.saveCurrentProject(true);
-        }, 1500);
+        }, 500);
     }
 
     renameProject(id, newTitle) {
@@ -2164,11 +2326,14 @@ class ProjectManager {
         if (!proj) return;
         proj.title = newTitle.trim() || proj.title;
         proj.updatedAt = Date.now();
+        proj.clientId = CLIENT_SESSION_ID;
         this.saveLocalProjects();
         firebaseService.saveProjectDoc(proj);
         if (this.currentProjectId === id) {
             const el = document.getElementById('currentProjectTitleDisplay');
+            const mobEl = document.getElementById('mobileCurrentProjectTitle');
             if (el) el.textContent = proj.title;
+            if (mobEl) mobEl.textContent = proj.title;
         }
         this.renderHub();
         showToast('تم تعديل اسم المشروع بنجاح ✓', 'success', 'fa-pen');
@@ -2819,6 +2984,9 @@ async function formatIncremental() {
         historyManager.pushState('تنسيق مدمج', true);
     } finally {
         isFormattingInProgress = false;
+        if (typeof projectManager !== 'undefined') {
+            projectManager.saveCurrentProject(true);
+        }
     }
 }
 
@@ -2865,6 +3033,9 @@ async function reFormatAll() {
         historyManager.pushState('تنسيق مدمج للمستند', true);
     } finally {
         isFormattingInProgress = false;
+        if (typeof projectManager !== 'undefined') {
+            projectManager.saveCurrentProject(true);
+        }
     }
 }
 
