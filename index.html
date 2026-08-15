@@ -393,57 +393,149 @@
             align-items: center; justify-content: center;
             text-align: center; color: #4b5563;
         }
+
+        /* ── UTILITIES & SCROLLBARS ── */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .touch-scroll { -webkit-overflow-scrolling: touch; }
+
+        /* ══════════════════════════════════════════════
+           MOBILE & TABLET RESPONSIVE RULES (<= 1024px)
+           ══════════════════════════════════════════════ */
+        @media (max-width: 1024px) {
+            .mobile-hidden-tab { display: none !important; }
+            .mobile-active-tab { display: flex !important; flex: 1 !important; width: 100% !important; }
+
+            #navPaneContainer.mobile-active-tab {
+                position: fixed !important;
+                top: 0; right: 0; bottom: 0;
+                width: 320px !important;
+                max-width: 85vw !important;
+                z-index: 60 !important;
+                box-shadow: -10px 0 35px rgba(0,0,0,0.85) !important;
+                background: rgba(15, 23, 42, 0.98) !important;
+                backdrop-filter: blur(20px) !important;
+            }
+            #rawPanelSection {
+                width: 100% !important;
+                border-left: none !important;
+            }
+            #bookPanelSection {
+                width: 100% !important;
+            }
+        }
+
+        @media (max-width: 820px) {
+            .book-area {
+                padding: 16px 10px !important;
+            }
+            .pdf-page {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                min-height: 480px !important;
+                margin: 0 0 20px 0 !important;
+                border-radius: 14px !important;
+                box-shadow: 0 4px 18px rgba(0,0,0,0.35) !important;
+            }
+            .page-header {
+                padding: 10px 14px !important;
+            }
+            .page-footer {
+                padding: 8px 14px !important;
+            }
+            .page-section {
+                grid-template-columns: 1fr 115px !important;
+                margin-bottom: 3px !important;
+            }
+            .section-body {
+                padding: 4px 12px 6px 8px !important;
+                font-size: calc(var(--page-font-size, 16px) - 1px) !important;
+                line-height: 1.85 !important;
+            }
+            .section-margin {
+                padding: 4px 6px 4px 8px !important;
+            }
+            .margin-label {
+                font-size: 10.5px !important;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .page-section {
+                grid-template-columns: 1fr !important;
+                gap: 4px !important;
+            }
+            .section-margin {
+                border-right: none !important;
+                border-top: 2px solid #c4a25a;
+                border-radius: 6px;
+                padding: 6px 8px !important;
+                margin: 4px 8px 8px 8px !important;
+                background: rgba(196, 162, 90, 0.09) !important;
+                flex-direction: row !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+            }
+            .margin-divider {
+                display: none !important;
+            }
+            .margin-label {
+                width: auto !important;
+                margin-left: 8px;
+            }
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
 <!-- ═══════════════ HEADER ═══════════════ -->
-<header class="glass-panel h-16 px-4 flex items-center justify-between z-20 border-b border-gray-800 shrink-0 gap-3">
-    <div class="flex items-center gap-3 shrink-0">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
-            <i class="fa-solid fa-book-open-reader text-xl text-white"></i>
+<header class="glass-panel min-h-14 sm:h-16 px-3 sm:px-4 py-2 sm:py-0 flex items-center justify-between z-20 border-b border-gray-800 shrink-0 gap-2 sm:gap-3">
+    <!-- Brand / Title -->
+    <div class="flex items-center gap-2.5 shrink-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+            <i class="fa-solid fa-book-open-reader text-lg sm:text-xl text-white"></i>
         </div>
-        <div>
-            <h1 class="text-sm font-extrabold text-white flex items-center gap-2">
-                منصة التفريغ والتنسيق الذكي
-                <span id="engineBadge" class="text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-normal">جاهز</span>
+        <div class="min-w-0">
+            <h1 class="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
+                <span>منصة التفريغ والتنسيق</span>
+                <span id="engineBadge" class="hidden sm:inline-block text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-normal">جاهز</span>
             </h1>
-            <p class="text-[11px] text-gray-400">تفريغ نصي حرفي · تنسيق كتابي بالذكاء الاصطناعي · مزامنة سحابية</p>
+            <p class="hidden sm:block text-[11px] text-gray-400 truncate">تفريغ نصي حرفي · تنسيق كتابي ذكي · مزامنة سحابية</p>
         </div>
     </div>
 
     <!-- Active Project & Projects Hub Trigger -->
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <!-- Projects Hub Button -->
-        <button onclick="projectManager.openHub()" id="openProjectsHubBtn" class="bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-700/80 text-indigo-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow transition active:scale-95">
+        <button onclick="projectManager.openHub()" id="openProjectsHubBtn" class="bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-700/80 text-indigo-200 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 sm:gap-2 shadow transition active:scale-95">
             <i class="fa-solid fa-folder-open text-indigo-400"></i>
-            <span>المشاريع</span>
+            <span class="hidden xs:inline">المشاريع</span>
             <span id="totalProjectsCountBadge" class="bg-indigo-600/60 text-white text-[10px] px-1.5 py-0.2 rounded-full">0</span>
         </button>
 
         <!-- Current Project Pill -->
         <div class="hidden md:flex items-center gap-2 bg-gray-900/90 border border-gray-700/70 px-3 py-1.5 rounded-xl text-xs">
             <span class="text-gray-400 text-[10px]">المشروع:</span>
-            <span id="currentProjectTitleDisplay" onclick="projectManager.renameCurrentProjectPrompt()" class="font-bold text-amber-300 max-w-[140px] truncate cursor-pointer hover:underline" title="انقر لتعديل اسم المشروع">مشروع جديد</span>
+            <span id="currentProjectTitleDisplay" onclick="projectManager.renameCurrentProjectPrompt()" class="font-bold text-amber-300 max-w-[130px] truncate cursor-pointer hover:underline" title="انقر لتعديل اسم المشروع">مشروع جديد</span>
             <button onclick="projectManager.renameCurrentProjectPrompt()" class="text-gray-400 hover:text-white text-[10px] p-0.5" title="تعديل الاسم"><i class="fa-solid fa-pen"></i></button>
         </div>
 
         <!-- 15-Step Undo / Redo in Header -->
         <div class="flex items-center bg-gray-900/90 p-0.5 rounded-xl border border-gray-700/70">
-            <button id="headerUndoBtn" onclick="historyManager.undo()" title="تراجع (Ctrl+Z) — يدعم حتى 15 خطوة سابقة" class="px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40 transition-all">
-                <i class="fa-solid fa-rotate-left text-indigo-400"></i>
-                <span class="hidden sm:inline">تراجع</span>
-                <span id="headerUndoBadge" class="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded-full font-bold">0/15</span>
+            <button id="headerUndoBtn" onclick="historyManager.undo()" title="تراجع (Ctrl+Z) — يدعم حتى 15 خطوة سابقة" class="px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-bold text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40 transition-all">
+                <i class="fa-solid fa-rotate-left text-indigo-400 text-xs"></i>
+                <span id="headerUndoBadge" class="text-[9px] sm:text-[10px] bg-indigo-500/20 text-indigo-300 px-1 py-0.2 rounded-full font-bold">0/15</span>
             </button>
-            <button id="headerRedoBtn" onclick="historyManager.redo()" title="إعادة (Ctrl+Y / Ctrl+Shift+Z)" class="px-2 py-1.5 rounded-lg flex items-center font-bold text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40 transition-all">
-                <i class="fa-solid fa-rotate-right text-gray-400"></i>
+            <button id="headerRedoBtn" onclick="historyManager.redo()" title="إعادة (Ctrl+Y / Ctrl+Shift+Z)" class="px-1.5 sm:px-2 py-1.5 rounded-lg flex items-center font-bold text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40 transition-all">
+                <i class="fa-solid fa-rotate-right text-gray-400 text-xs"></i>
             </button>
         </div>
     </div>
 
     <!-- Actions & Config Controls -->
-    <div class="flex items-center gap-2 shrink-0">
-        <!-- Source -->
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <!-- Source (Desktop) -->
         <div class="hidden lg:flex items-center bg-gray-900/80 p-1 rounded-xl border border-gray-700/50 text-xs">
             <button id="srcMicBtn"    onclick="selectSource('mic')"    class="px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium bg-indigo-600 text-white shadow-sm transition-all"><i class="fa-solid fa-microphone"></i> الميكروفون</button>
             <button id="srcSystemBtn" onclick="selectSource('system')" class="px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium text-gray-400 hover:text-gray-200 transition-all"><i class="fa-solid fa-desktop"></i> صوت النظام</button>
@@ -451,53 +543,166 @@
         </div>
         <input type="file" id="audioFileInput" accept="audio/*,video/*" class="hidden" onchange="handleFileUpload(event)">
 
+        <!-- Record Button -->
         <button id="toggleRecordBtn" onclick="toggleListening()"
-            class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95">
-            <i id="recordIcon" class="fa-solid fa-play"></i>
+            class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs flex items-center gap-1.5 sm:gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95">
+            <i id="recordIcon" class="fa-solid fa-play text-xs"></i>
             <span id="recordBtnText">بدء التفريغ</span>
         </button>
 
-        <!-- Firebase Cloud Sync Button -->
-        <button onclick="openFirebaseModal()" id="firebaseHeaderBtn" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-amber-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition" title="إعدادات وحالة المزامنة السحابية مع Firebase">
-            <i class="fa-solid fa-fire text-amber-400"></i>
-            <span class="hidden sm:inline" id="firebaseHeaderStatusText">Firebase</span>
-            <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-gray-500 shadow-sm" title="غير مربوط سحابياً (محلي)"></span>
-        </button>
-
-        <!-- Demo -->
-        <button onclick="loadDemo()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
-            <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> <span class="hidden xl:inline">تجربة</span>
-        </button>
-
-        <button onclick="openSettings()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-amber-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition" title="إعدادات الذكاء الاصطناعي ومفتاح OpenAI">
-            <i class="fa-solid fa-key text-amber-400"></i> <span class="hidden xl:inline">OpenAI</span>
-        </button>
-
-        <!-- Export -->
-        <div class="relative group">
-            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-download text-indigo-400"></i> <span class="hidden sm:inline">تصدير</span> <i class="fa-solid fa-chevron-down text-[9px] opacity-70"></i>
+        <!-- Desktop Controls -->
+        <div class="hidden lg:flex items-center gap-2">
+            <!-- Firebase Cloud Sync Button -->
+            <button onclick="openFirebaseModal()" id="firebaseHeaderBtn" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-amber-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition" title="إعدادات وحالة المزامنة السحابية مع Firebase">
+                <i class="fa-solid fa-fire text-amber-400"></i>
+                <span id="firebaseHeaderStatusText">Firebase</span>
+                <span id="firebaseStatusDot" class="w-2 h-2 rounded-full bg-gray-500 shadow-sm"></span>
             </button>
-            <div class="absolute left-0 mt-1 w-44 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl hidden group-hover:block z-50 p-1 text-xs">
-                <button onclick="printBook()"       class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-solid fa-print text-rose-400"></i> طباعة / PDF</button>
-                <button onclick="exportReport('txt')" class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-solid fa-file-lines text-blue-400"></i> نص عادي</button>
-                <button onclick="exportReport('md')"  class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-brands fa-markdown text-purple-400"></i> ماركداون</button>
-                <button onclick="exportReport('json')"class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-solid fa-code text-emerald-400"></i> JSON</button>
+
+            <!-- Demo -->
+            <button onclick="loadDemo()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> <span>تجربة</span>
+            </button>
+
+            <!-- OpenAI Settings Button -->
+            <button onclick="openSettings()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-amber-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition" title="إعدادات الذكاء الاصطناعي ومفتاح OpenAI">
+                <i class="fa-solid fa-key text-amber-400"></i> <span>OpenAI</span>
+            </button>
+
+            <!-- Export Dropdown -->
+            <div class="relative group">
+                <button class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-download text-indigo-400"></i> <span>تصدير</span> <i class="fa-solid fa-chevron-down text-[9px] opacity-70"></i>
+                </button>
+                <div class="absolute left-0 mt-1 w-44 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl hidden group-hover:block z-50 p-1 text-xs">
+                    <button onclick="printBook()"       class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-solid fa-print text-rose-400"></i> طباعة / PDF</button>
+                    <button onclick="exportReport('txt')" class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-solid fa-file-lines text-blue-400"></i> نص عادي</button>
+                    <button onclick="exportReport('md')"  class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-brands fa-markdown text-purple-400"></i> ماركداون</button>
+                    <button onclick="exportReport('json')"class="w-full text-right px-3 py-2 hover:bg-gray-800 rounded-lg text-gray-300 flex items-center gap-2"><i class="fa-solid fa-code text-emerald-400"></i> JSON</button>
+                </div>
             </div>
+            <button onclick="confirmClearAll()" title="مسح محتوى المحرر الحالي" class="text-gray-400 hover:text-red-400 p-2 rounded-xl transition"><i class="fa-solid fa-trash-can"></i></button>
         </div>
-        <button onclick="confirmClearAll()" title="مسح محتوى المحرر الحالي" class="text-gray-400 hover:text-red-400 p-2 rounded-xl transition"><i class="fa-solid fa-trash-can"></i></button>
+
+        <!-- Mobile Menu Hamburger Button -->
+        <button onclick="openMobileMenu()" id="mobileMenuBtn" class="lg:hidden w-9 h-9 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 flex items-center justify-center transition active:scale-95" title="القائمة والخيارات">
+            <i class="fa-solid fa-bars text-sm"></i>
+        </button>
     </div>
 </header>
 
+<!-- ═══════════════ MOBILE QUICK ACTIONS DRAWER / MODAL ═══════════════ -->
+<div id="mobileMenuModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4 transition-all">
+    <div class="bg-gray-900 border-t sm:border border-gray-700/90 rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl flex flex-col gap-4 text-xs">
+        <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-600/30 text-indigo-400 flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <h3 class="font-bold text-sm text-white">خيارات وإعدادات سريعة</h3>
+            </div>
+            <button onclick="closeMobileMenu()" class="w-8 h-8 rounded-full bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Project Info -->
+        <div class="bg-gray-950 p-3 rounded-2xl border border-gray-800 flex items-center justify-between">
+            <div class="min-w-0 flex-1">
+                <p class="text-[10px] text-gray-400">المشروع الحالي:</p>
+                <p id="mobileCurrentProjectTitle" class="font-bold text-amber-300 truncate text-xs">مشروع جديد</p>
+            </div>
+            <button onclick="projectManager.renameCurrentProjectPrompt(); closeMobileMenu();" class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-pen text-amber-400"></i> تعديل الاسم
+            </button>
+        </div>
+
+        <!-- Audio Source Selector -->
+        <div class="space-y-1.5">
+            <p class="text-[11px] text-gray-400 font-bold">مصدر الصوت للتفريغ:</p>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="selectSource('mic'); closeMobileMenu();" id="mobileSrcMicBtn" class="py-2.5 px-2 rounded-xl bg-indigo-600 text-white font-bold text-center flex flex-col items-center gap-1 transition">
+                    <i class="fa-solid fa-microphone text-sm"></i>
+                    <span class="text-[10px]">الميكروفون</span>
+                </button>
+                <button onclick="selectSource('system'); closeMobileMenu();" id="mobileSrcSystemBtn" class="py-2.5 px-2 rounded-xl bg-gray-800 text-gray-300 font-semibold text-center flex flex-col items-center gap-1 transition">
+                    <i class="fa-solid fa-desktop text-sm"></i>
+                    <span class="text-[10px]">صوت النظام</span>
+                </button>
+                <button onclick="selectSource('file'); closeMobileMenu();" id="mobileSrcFileBtn" class="py-2.5 px-2 rounded-xl bg-gray-800 text-gray-300 font-semibold text-center flex flex-col items-center gap-1 transition">
+                    <i class="fa-solid fa-file-audio text-sm"></i>
+                    <span class="text-[10px]">رفع ملف</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Actions & Sync Grid -->
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+            <button onclick="openFirebaseModal(); closeMobileMenu();" class="p-3 rounded-2xl bg-gray-950 border border-gray-800 hover:border-amber-500/50 flex items-center gap-2.5 text-right transition">
+                <i class="fa-solid fa-fire text-amber-400 text-base shrink-0"></i>
+                <div class="min-w-0">
+                    <p class="font-bold text-gray-200">الفايربيس السحابي</p>
+                    <p class="text-[10px] text-gray-400 truncate">مزامنة المشاريع</p>
+                </div>
+            </button>
+
+            <button onclick="openSettings(); closeMobileMenu();" class="p-3 rounded-2xl bg-gray-950 border border-gray-800 hover:border-indigo-500/50 flex items-center gap-2.5 text-right transition">
+                <i class="fa-solid fa-key text-indigo-400 text-base shrink-0"></i>
+                <div class="min-w-0">
+                    <p class="font-bold text-gray-200">مفتاح OpenAI</p>
+                    <p class="text-[10px] text-gray-400 truncate">GPT & Whisper</p>
+                </div>
+            </button>
+
+            <button onclick="loadDemo(); closeMobileMenu();" class="p-3 rounded-2xl bg-gray-950 border border-gray-800 hover:border-purple-500/50 flex items-center gap-2.5 text-right transition">
+                <i class="fa-solid fa-wand-magic-sparkles text-purple-400 text-base shrink-0"></i>
+                <div class="min-w-0">
+                    <p class="font-bold text-gray-200">تحميل تجربة</p>
+                    <p class="text-[10px] text-gray-400 truncate">محاضرة نموذجية</p>
+                </div>
+            </button>
+
+            <button onclick="printBook(); closeMobileMenu();" class="p-3 rounded-2xl bg-gray-950 border border-gray-800 hover:border-rose-500/50 flex items-center gap-2.5 text-right transition">
+                <i class="fa-solid fa-print text-rose-400 text-base shrink-0"></i>
+                <div class="min-w-0">
+                    <p class="font-bold text-gray-200">طباعة / PDF</p>
+                    <p class="text-[10px] text-gray-400 truncate">تصدير A4 جاهز</p>
+                </div>
+            </button>
+        </div>
+
+        <!-- Export formats list -->
+        <div class="space-y-1.5 pt-1">
+            <p class="text-[11px] text-gray-400 font-bold">تصدير المستند:</p>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="exportReport('txt'); closeMobileMenu();" class="py-2 px-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-center flex items-center justify-center gap-1.5 transition">
+                    <i class="fa-solid fa-file-lines text-blue-400"></i> TXT
+                </button>
+                <button onclick="exportReport('md'); closeMobileMenu();" class="py-2 px-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-center flex items-center justify-center gap-1.5 transition">
+                    <i class="fa-brands fa-markdown text-purple-400"></i> MD
+                </button>
+                <button onclick="exportReport('json'); closeMobileMenu();" class="py-2 px-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-center flex items-center justify-center gap-1.5 transition">
+                    <i class="fa-solid fa-code text-emerald-400"></i> JSON
+                </button>
+            </div>
+        </div>
+
+        <!-- Clear all -->
+        <button onclick="confirmClearAll(); closeMobileMenu();" class="w-full py-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/80 text-rose-300 font-bold flex items-center justify-center gap-2 transition">
+            <i class="fa-solid fa-trash-can"></i> مسح محتوى المستند الحالي
+        </button>
+    </div>
+</div>
+
 <!-- ═══════════════ STATUS BAR ═══════════════ -->
-<div class="bg-gray-950 px-5 py-2 border-b border-gray-800/80 flex items-center justify-between text-xs text-gray-400 shrink-0 gap-4">
-    <div class="flex items-center gap-4">
+<div class="bg-gray-950 px-3 sm:px-5 py-2 border-b border-gray-800/80 flex items-center justify-between text-xs text-gray-400 shrink-0 gap-2 sm:gap-4 overflow-x-auto no-scrollbar touch-scroll">
+    <div class="flex items-center gap-2 sm:gap-4 shrink-0">
         <span id="statusIndicator" class="w-2.5 h-2.5 rounded-full bg-gray-500 shrink-0"></span>
-        <span id="statusText" class="font-medium text-gray-300">جاهز للبدء</span>
-        <div id="audioWaveVisualizer" class="flex items-center gap-1 paused-wave">
+        <span id="statusText" class="font-medium text-gray-300 whitespace-nowrap">جاهز للبدء</span>
+        <div id="audioWaveVisualizer" class="flex items-center gap-1 paused-wave shrink-0">
             <div class="wave-bar h-3"></div><div class="wave-bar h-3"></div><div class="wave-bar h-3"></div><div class="wave-bar h-3"></div><div class="wave-bar h-3"></div>
         </div>
-        <span class="font-mono text-indigo-300"><i class="fa-regular fa-clock ml-1"></i><span id="timerDisplay">00:00:00</span></span>
+        <span class="font-mono text-indigo-300 whitespace-nowrap"><i class="fa-regular fa-clock ml-1"></i><span id="timerDisplay">00:00:00</span></span>
     </div>
 
     <!-- File Player -->
@@ -515,17 +720,33 @@
         </div>
     </div>
 
-    <div class="flex items-center gap-4 text-[11px] shrink-0">
-        <span>الكلمات الخام: <strong id="statWords" class="text-white">0</strong></span>
-        <span>الصفحات: <strong id="statPages" class="text-indigo-400">0</strong></span>
+    <div class="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-[11px] shrink-0">
+        <span class="whitespace-nowrap">الكلمات: <strong id="statWords" class="text-white">0</strong></span>
+        <span class="whitespace-nowrap">الصفحات: <strong id="statPages" class="text-indigo-400">0</strong></span>
     </div>
 </div>
 
+<!-- ═══════════════ MOBILE TAB SWITCHER (VISIBLE ON <= 1024px) ═══════════════ -->
+<div id="mobileTabBar" class="lg:hidden bg-gray-900/90 backdrop-blur-md border-b border-gray-800 px-3 py-1.5 flex items-center justify-around gap-2 shrink-0 z-10 text-xs">
+    <button id="mobileTabBtn_book" onclick="switchMobileTab('book')" class="flex-1 py-1.5 px-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition bg-indigo-600 text-white shadow-sm">
+        <i class="fa-solid fa-book text-amber-300"></i>
+        <span>عرض الكتاب</span>
+    </button>
+    <button id="mobileTabBtn_raw" onclick="switchMobileTab('raw')" class="flex-1 py-1.5 px-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition text-gray-400 hover:text-white hover:bg-gray-800">
+        <i class="fa-solid fa-microphone-lines text-indigo-400"></i>
+        <span>التفريغ الحرفي</span>
+    </button>
+    <button id="mobileTabBtn_nav" onclick="switchMobileTab('nav')" class="py-1.5 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition text-gray-400 hover:text-white hover:bg-gray-800">
+        <i class="fa-solid fa-sitemap text-purple-400"></i>
+        <span>الفهرس</span>
+    </button>
+</div>
+
 <!-- ═══════════════ MAIN LAYOUT ═══════════════ -->
-<main class="flex-1 flex overflow-hidden">
+<main class="flex-1 flex overflow-hidden relative">
 
     <!-- 25% RIGHT: raw transcript (EDITABLE) -->
-    <section class="w-1/4 border-l border-gray-800/80 flex flex-col glass-panel" style="user-select:text">
+    <section id="rawPanelSection" class="w-full lg:w-1/4 border-l border-gray-800/80 flex flex-col glass-panel mobile-hidden-tab lg:flex" style="user-select:text">
         <div class="p-3 border-b border-gray-800/80 flex items-center justify-between bg-gray-900/60 shrink-0">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-microphone-lines text-indigo-400"></i>
@@ -554,48 +775,48 @@
     </section>
 
     <!-- 75% LEFT: PDF Book View -->
-    <section class="w-3/4 flex flex-col overflow-hidden">
-        <div class="p-3 border-b border-gray-800 bg-gray-900/80 shrink-0 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
+    <section id="bookPanelSection" class="w-full lg:w-3/4 flex flex-col overflow-hidden mobile-active-tab lg:flex">
+        <div class="p-2.5 sm:p-3 border-b border-gray-800 bg-gray-900/80 shrink-0 flex items-center justify-between gap-2 sm:gap-3 overflow-x-auto no-scrollbar touch-scroll">
+            <div class="flex items-center gap-2 shrink-0">
                 <i class="fa-solid fa-book text-amber-400"></i>
-                <p class="text-xs font-bold text-white">عرض الكتاب — A4 صفحة صفحة</p>
-                <span class="text-[10px] text-gray-500 hidden sm:inline">(العناوين الجانبية على الهامش الأيسر)</span>
-                <span id="formatStatus" class="text-[11px] font-semibold text-emerald-400 mr-2"></span>
+                <p class="text-xs font-bold text-white whitespace-nowrap">عرض الكتاب — A4</p>
+                <span class="text-[10px] text-gray-500 hidden md:inline whitespace-nowrap">(العناوين الجانبية على الهامش)</span>
+                <span id="formatStatus" class="text-[11px] font-semibold text-emerald-400 mr-2 whitespace-nowrap"></span>
             </div>
-            <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center gap-2 shrink-0">
                 <!-- Navigation Pane Toggle -->
-                <button onclick="toggleNavPane()" id="navPaneToggleBtn" class="bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-700 text-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
-                    <i class="fa-solid fa-sitemap text-indigo-400"></i> التنقل
+                <button onclick="toggleNavPane()" id="navPaneToggleBtn" class="bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-700 text-indigo-200 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0">
+                    <i class="fa-solid fa-sitemap text-indigo-400"></i> <span class="hidden sm:inline">التنقل</span>
                 </button>
 
                 <!-- Auto-scroll Toggle -->
-                <button id="autoScrollBtn" onclick="toggleAutoScroll()" class="bg-emerald-950/80 border border-emerald-700 text-emerald-300 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
-                    <i class="fa-solid fa-angles-down text-emerald-400"></i> التمرير التلقائي: مفعل
+                <button id="autoScrollBtn" onclick="toggleAutoScroll()" class="bg-emerald-950/80 border border-emerald-700 text-emerald-300 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0">
+                    <i class="fa-solid fa-angles-down text-emerald-400"></i> <span class="hidden sm:inline">التمرير:</span> مفعل
                 </button>
 
                 <!-- Font size control -->
-                <div class="flex items-center gap-2 bg-gray-950 border border-gray-700 rounded-lg px-3 py-1">
+                <div class="flex items-center gap-1.5 sm:gap-2 bg-gray-950 border border-gray-700 rounded-lg px-2 sm:px-3 py-1 shrink-0">
                     <i class="fa-solid fa-text-height text-gray-400 text-xs"></i>
                     <input type="range" id="fontSizeSlider" min="12" max="24" value="16" step="1"
                         oninput="changeFontSize(this.value)"
-                        class="w-20 h-1 accent-amber-500 cursor-pointer">
-                    <span id="fontSizeLabel" class="text-amber-300 font-bold text-xs w-7">16</span>
+                        class="w-14 sm:w-20 h-1 accent-amber-500 cursor-pointer">
+                    <span id="fontSizeLabel" class="text-amber-300 font-bold text-xs w-6 sm:w-7">16</span>
                 </div>
-                <button onclick="formatIncremental()" id="incrementalFormatBtn" title="تنسيق الأجزاء الجديدة غير المنسقة وإضافتها للكتاب مباشرة" class="bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-700 text-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
-                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-300"></i> تنسيق النص الجديد
+                <button onclick="formatIncremental()" id="incrementalFormatBtn" title="تنسيق الأجزاء الجديدة غير المنسقة وإضافتها للكتاب مباشرة" class="bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-700 text-indigo-200 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0">
+                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-300"></i> <span class="hidden xs:inline">تنسيق الجديد</span>
                 </button>
                 
                 <!-- Full Re-format button with Stages Gear Dropdown -->
-                <div class="relative inline-flex items-center">
-                    <button onclick="reFormatAll()" id="reFormatBtn" title="إعادة تنسيق وتحديث المستند بالكامل من البداية" class="bg-amber-900/60 hover:bg-amber-800 border border-amber-700 text-amber-200 px-3 py-1.5 rounded-r-lg text-xs font-bold flex items-center gap-1.5 transition">
-                        <i class="fa-solid fa-rotate text-amber-300"></i> تحديث التنسيق بالكامل
+                <div class="relative inline-flex items-center shrink-0">
+                    <button onclick="reFormatAll()" id="reFormatBtn" title="إعادة تنسيق وتحديث المستند بالكامل من البداية" class="bg-amber-900/60 hover:bg-amber-800 border border-amber-700 text-amber-200 px-2.5 sm:px-3 py-1.5 rounded-r-lg text-xs font-bold flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-rotate text-amber-300"></i> <span class="hidden sm:inline">تحديث التنسيق</span>
                     </button>
-                    <button onclick="toggleStagesPopover(event)" id="stagesGearBtn" title="مراحل وخطوات التنسيق الذكي" class="bg-amber-950/90 hover:bg-amber-800 border-t border-b border-l border-amber-700 text-amber-300 px-2.5 py-1.5 rounded-l-lg text-xs transition flex items-center justify-center">
+                    <button onclick="toggleStagesPopover(event)" id="stagesGearBtn" title="مراحل وخطوات التنسيق الذكي" class="bg-amber-950/90 hover:bg-amber-800 border-t border-b border-l border-amber-700 text-amber-300 px-2 sm:px-2.5 py-1.5 rounded-l-lg text-xs transition flex items-center justify-center">
                         <i class="fa-solid fa-gear"></i>
                     </button>
 
                     <!-- Stages Popover Bubble -->
-                    <div id="stagesPopover" class="absolute left-0 top-full mt-2 w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-4 hidden z-50 text-xs text-gray-200 backdrop-blur-md">
+                    <div id="stagesPopover" class="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-4 hidden z-50 text-xs text-gray-200 backdrop-blur-md">
                         <div class="flex items-center justify-between border-b border-gray-800 pb-2 mb-3">
                             <span class="font-bold text-amber-300 flex items-center gap-1.5">
                                 <i class="fa-solid fa-layer-group text-amber-400"></i> مراحل التنسيق التلقائي
@@ -638,69 +859,69 @@
                     </div>
                 </div>
 
-                <button onclick="printBook()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
-                    <i class="fa-solid fa-print text-rose-400"></i> طباعة / PDF
+                <button onclick="printBook()" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0">
+                    <i class="fa-solid fa-print text-rose-400"></i> <span class="hidden sm:inline">طباعة / PDF</span>
                 </button>
             </div>
         </div>
 
         <!-- Secondary Toolbar: Selection Editing & Formatting Bar -->
-        <div class="px-4 py-2 border-b border-gray-800 bg-gray-950/90 flex items-center justify-between gap-3 shrink-0 text-xs">
-            <div class="flex items-center gap-2.5 flex-wrap">
+        <div class="px-3 sm:px-4 py-2 border-b border-gray-800 bg-gray-950/90 flex items-center justify-between gap-2.5 shrink-0 text-xs overflow-x-auto no-scrollbar touch-scroll">
+            <div class="flex items-center gap-2 sm:gap-2.5 flex-nowrap shrink-0">
                 <!-- Undo / Redo Quick Buttons -->
-                <div class="flex items-center bg-gray-900 border border-gray-700/80 rounded-lg p-0.5 shadow-sm">
-                    <button onmousedown="event.preventDefault()" onclick="historyManager.undo()" id="toolbarUndoBtn" title="تراجع خطوة (Ctrl+Z) — متاح حتى 15 خطوة سابقة" class="bg-gray-800 hover:bg-gray-700 text-indigo-300 px-2.5 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1">
-                        <i class="fa-solid fa-rotate-left"></i> تراجع <span id="toolbarUndoBadge" class="text-[9px] bg-indigo-500/30 text-indigo-200 px-1.5 py-0.2 rounded-full">0/15</span>
+                <div class="flex items-center bg-gray-900 border border-gray-700/80 rounded-lg p-0.5 shadow-sm shrink-0">
+                    <button onmousedown="event.preventDefault()" onclick="historyManager.undo()" id="toolbarUndoBtn" title="تراجع خطوة (Ctrl+Z) — متاح حتى 15 خطوة سابقة" class="bg-gray-800 hover:bg-gray-700 text-indigo-300 px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1">
+                        <i class="fa-solid fa-rotate-left"></i> <span class="hidden xs:inline">تراجع</span> <span id="toolbarUndoBadge" class="text-[9px] bg-indigo-500/30 text-indigo-200 px-1 py-0.2 rounded-full">0/15</span>
                     </button>
-                    <button onmousedown="event.preventDefault()" onclick="historyManager.redo()" id="toolbarRedoBtn" title="إعادة (Ctrl+Y)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center">
+                    <button onmousedown="event.preventDefault()" onclick="historyManager.redo()" id="toolbarRedoBtn" title="إعادة (Ctrl+Y)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-1.5 sm:px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center">
                         <i class="fa-solid fa-rotate-right"></i>
                     </button>
                 </div>
 
-                <span class="text-gray-400 text-[11px] font-semibold flex items-center gap-1.5 shrink-0">
-                    <i class="fa-solid fa-i-cursor text-indigo-400"></i> تعديل النص المحدد:
+                <span class="text-gray-400 text-[11px] font-semibold flex items-center gap-1.5 shrink-0 whitespace-nowrap hidden sm:flex">
+                    <i class="fa-solid fa-i-cursor text-indigo-400"></i> تعديل التحديد:
                 </span>
 
                 <!-- Auto-format Selected Text Button -->
-                <button onmousedown="event.preventDefault()" onclick="formatSelectedTextOnly()" title="تنسيق النص المحدد فقط بمراحل الذكاء الاصطناعي/المحرر الذكي" class="bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-700/80 text-indigo-300 px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow">
-                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> تنسيق التحديد تلقائياً
+                <button onmousedown="event.preventDefault()" onclick="formatSelectedTextOnly()" title="تنسيق النص المحدد فقط بمراحل الذكاء الاصطناعي/المحرر الذكي" class="bg-indigo-950/90 hover:bg-indigo-900 border border-indigo-700/80 text-indigo-300 px-2.5 sm:px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow shrink-0 whitespace-nowrap">
+                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> <span>تنسيق التحديد</span>
                 </button>
 
                 <!-- Heading Converter with Level Dropdown H1 to H10 -->
-                <div class="flex items-center bg-gray-900 border border-gray-700/80 rounded-lg p-0.5 shadow-sm">
-                    <select id="headingLevelSelect" class="bg-transparent text-amber-300 font-bold px-2 py-1 text-xs focus:outline-none cursor-pointer">
-                        <option value="h1" class="bg-gray-900 text-amber-300">عنوان H1 (رئيسي كبير)</option>
-                        <option value="h2" class="bg-gray-900 text-amber-300">عنوان H2 (موضوع رئيسي)</option>
-                        <option value="h3" class="bg-gray-900 text-amber-300">عنوان H3 (فرعي - خط 1)</option>
-                        <option value="h4" class="bg-gray-900 text-amber-300">عنوان H4 (فرعي - خطان)</option>
-                        <option value="h5" class="bg-gray-900 text-amber-300">عنوان H5 (فرعي - 3 خطوط)</option>
-                        <option value="h6" class="bg-gray-900 text-amber-300">عنوان H6 (فرعي - 4 خطوط)</option>
-                        <option value="h7" class="bg-gray-900 text-amber-300">عنوان H7 (فرعي - 5 خطوط)</option>
-                        <option value="h8" class="bg-gray-900 text-amber-300">عنوان H8 (فرعي - 6 خطوط)</option>
-                        <option value="h9" class="bg-gray-900 text-amber-300">عنوان H9 (فرعي - 7 خطوط)</option>
-                        <option value="h10" class="bg-gray-900 text-amber-300">عنوان H10 (فرعي - 8 خطوط)</option>
+                <div class="flex items-center bg-gray-900 border border-gray-700/80 rounded-lg p-0.5 shadow-sm shrink-0">
+                    <select id="headingLevelSelect" class="bg-transparent text-amber-300 font-bold px-1.5 sm:px-2 py-1 text-xs focus:outline-none cursor-pointer">
+                        <option value="h1" class="bg-gray-900 text-amber-300">H1 (رئيسي)</option>
+                        <option value="h2" class="bg-gray-900 text-amber-300">H2 (موضوع)</option>
+                        <option value="h3" class="bg-gray-900 text-amber-300">H3 (فرعي 1)</option>
+                        <option value="h4" class="bg-gray-900 text-amber-300">H4 (فرعي 2)</option>
+                        <option value="h5" class="bg-gray-900 text-amber-300">H5 (فرعي 3)</option>
+                        <option value="h6" class="bg-gray-900 text-amber-300">H6 (فرعي 4)</option>
+                        <option value="h7" class="bg-gray-900 text-amber-300">H7 (فرعي 5)</option>
+                        <option value="h8" class="bg-gray-900 text-amber-300">H8 (فرعي 6)</option>
+                        <option value="h9" class="bg-gray-900 text-amber-300">H9 (فرعي 7)</option>
+                        <option value="h10" class="bg-gray-900 text-amber-300">H10 (فرعي 8)</option>
                     </select>
-                    <button onmousedown="event.preventDefault()" onclick="applyHeadingToSelection()" title="تحويل النص أو العنوان المحدد إلى المستوى المختار" class="bg-amber-700 hover:bg-amber-600 text-white px-2.5 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 shadow">
-                        <i class="fa-solid fa-heading"></i> تطبيق كعنوان
+                    <button onmousedown="event.preventDefault()" onclick="applyHeadingToSelection()" title="تحويل النص أو العنوان المحدد إلى المستوى المختار" class="bg-amber-700 hover:bg-amber-600 text-white px-2 sm:px-2.5 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 shadow whitespace-nowrap">
+                        <i class="fa-solid fa-heading"></i> تطبيق
                     </button>
                 </div>
 
                 <!-- Reset to Normal Text Button -->
-                <button onmousedown="event.preventDefault()" onclick="applyNormalTextToSelection()" title="إعادة النص أو العنوان المحدد إلى نص فقرة عادي (إلغاء العنوان والتشديد)" class="bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-200 px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow">
-                    <i class="fa-solid fa-paragraph text-slate-400"></i> إعادة لنص عادي
+                <button onmousedown="event.preventDefault()" onclick="applyNormalTextToSelection()" title="إعادة النص أو العنوان المحدد إلى نص فقرة عادي (إلغاء العنوان والتشديد)" class="bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-200 px-2.5 sm:px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow shrink-0 whitespace-nowrap">
+                    <i class="fa-solid fa-paragraph text-slate-400"></i> عادي
                 </button>
 
                 <!-- Add Side Heading Button -->
-                <button onmousedown="event.preventDefault()" onclick="applySideHeadingToSelection()" title="إضافة عنوان جانبي للنص المحدد" class="bg-yellow-950/90 hover:bg-yellow-900 border border-yellow-700/80 text-yellow-300 px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow">
-                    <i class="fa-solid fa-bookmark text-yellow-400"></i> إضافة عنوان جانبي
+                <button onmousedown="event.preventDefault()" onclick="applySideHeadingToSelection()" title="إضافة عنوان جانبي للنص المحدد" class="bg-yellow-950/90 hover:bg-yellow-900 border border-yellow-700/80 text-yellow-300 px-2.5 sm:px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow shrink-0 whitespace-nowrap">
+                    <i class="fa-solid fa-bookmark text-yellow-400"></i> هامش
                 </button>
 
                 <!-- Bold / Emphasis Button -->
-                <button onmousedown="event.preventDefault()" onclick="applyEmphasisToSelection()" title="تشديد النص المحدد (داكن)" class="bg-rose-950/90 hover:bg-rose-900 border border-rose-700/80 text-rose-300 px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow">
-                    <i class="fa-solid fa-bold text-rose-400"></i> تشديد النص (داكن)
+                <button onmousedown="event.preventDefault()" onclick="applyEmphasisToSelection()" title="تشديد النص المحدد (داكن)" class="bg-rose-950/90 hover:bg-rose-900 border border-rose-700/80 text-rose-300 px-2.5 sm:px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 shadow shrink-0 whitespace-nowrap">
+                    <i class="fa-solid fa-bold text-rose-400"></i> داكن
                 </button>
             </div>
-            <span class="text-[10px] text-gray-500 hidden xl:inline">حدّد أي نص في صفحات الكتاب أو صندوق التفريغ ثم اضغط على الأداة لتطبيق التعديل مباشرة</span>
+            <span class="text-[10px] text-gray-500 hidden xl:inline whitespace-nowrap">حدّد النص ثم اضغط على الأداة لتطبيق التعديل مباشرة</span>
         </div>
 
         <!-- Book content layout: Navigation Sidebar + Book scroll area -->
@@ -2656,9 +2877,16 @@ function selectSource(src) {
     ['mic','system','file'].forEach(s => {
         const btn = document.getElementById('src' + s.charAt(0).toUpperCase() + s.slice(1) + 'Btn');
         const colors = { mic:'bg-indigo-600', system:'bg-purple-600', file:'bg-blue-600' };
-        btn.className = `px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${s===src ? colors[s]+' text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`;
+        if (btn) {
+            btn.className = `px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium transition-all ${s===src ? colors[s]+' text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`;
+        }
+        const mobBtn = document.getElementById('mobileSrc' + s.charAt(0).toUpperCase() + s.slice(1) + 'Btn');
+        if (mobBtn) {
+            mobBtn.className = `py-2.5 px-2 rounded-xl font-bold text-center flex flex-col items-center gap-1 transition ${s===src ? 'bg-indigo-600 text-white shadow' : 'bg-gray-800 text-gray-300'}`;
+        }
     });
-    document.getElementById('filePlayerBar').classList.toggle('hidden', src !== 'file');
+    const fpb = document.getElementById('filePlayerBar');
+    if (fpb) fpb.classList.toggle('hidden', src !== 'file');
     if (src === 'file') document.getElementById('audioFileInput').click();
 }
 
@@ -4261,10 +4489,86 @@ function openSettings() { document.getElementById('settingsModal').classList.rem
 function closeSettings(){ document.getElementById('settingsModal').classList.add('hidden'); }
 
 // ══════════════════════════════════════════════
+// MOBILE ADAPTATION HELPERS
+// ══════════════════════════════════════════════
+let currentMobileTab = 'book';
+
+function switchMobileTab(tab) {
+    currentMobileTab = tab;
+    const rawSec = document.getElementById('rawPanelSection');
+    const bookSec = document.getElementById('bookPanelSection');
+    const navPane = document.getElementById('navPaneContainer');
+
+    const btnBook = document.getElementById('mobileTabBtn_book');
+    const btnRaw = document.getElementById('mobileTabBtn_raw');
+    const btnNav = document.getElementById('mobileTabBtn_nav');
+
+    // Reset button styling
+    [btnBook, btnRaw, btnNav].forEach(btn => {
+        if (btn) {
+            btn.className = 'py-1.5 px-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition text-gray-400 hover:text-white hover:bg-gray-800';
+        }
+    });
+
+    if (tab === 'book') {
+        if (btnBook) btnBook.className = 'flex-1 py-1.5 px-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition bg-indigo-600 text-white shadow-sm';
+        if (bookSec) { bookSec.classList.remove('mobile-hidden-tab'); bookSec.classList.add('mobile-active-tab'); }
+        if (rawSec) { rawSec.classList.add('mobile-hidden-tab'); rawSec.classList.remove('mobile-active-tab'); }
+        if (navPane) { navPane.classList.remove('mobile-active-tab'); }
+    } else if (tab === 'raw') {
+        if (btnRaw) btnRaw.className = 'flex-1 py-1.5 px-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition bg-indigo-600 text-white shadow-sm';
+        if (rawSec) { rawSec.classList.remove('mobile-hidden-tab'); rawSec.classList.add('mobile-active-tab'); }
+        if (bookSec) { bookSec.classList.add('mobile-hidden-tab'); bookSec.classList.remove('mobile-active-tab'); }
+        if (navPane) { navPane.classList.remove('mobile-active-tab'); }
+    } else if (tab === 'nav') {
+        if (btnNav) btnNav.className = 'py-1.5 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition bg-indigo-600 text-white shadow-sm';
+        if (navPane) {
+            navPane.classList.toggle('mobile-active-tab');
+        }
+    }
+}
+
+function openMobileMenu() {
+    const modal = document.getElementById('mobileMenuModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        const titleEl = document.getElementById('mobileCurrentProjectTitle');
+        const proj = typeof projectManager !== 'undefined' ? projectManager.getCurrentProject() : null;
+        if (titleEl && proj) {
+            titleEl.textContent = proj.title || 'مشروع جديد';
+        }
+        
+        // Update selected source indicator in mobile menu
+        ['mic', 'system', 'file'].forEach(s => {
+            const btn = document.getElementById('mobileSrc' + s.charAt(0).toUpperCase() + s.slice(1) + 'Btn');
+            if (btn) {
+                btn.className = `py-2.5 px-2 rounded-xl font-bold text-center flex flex-col items-center gap-1 transition ${s === selectedSource ? 'bg-indigo-600 text-white shadow' : 'bg-gray-800 text-gray-300'}`;
+            }
+        });
+    }
+}
+
+function closeMobileMenu() {
+    const modal = document.getElementById('mobileMenuModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// Window resize listener to restore desktop classes gracefully
+window.addEventListener('resize', () => {
+    if (window.innerWidth >= 1024) {
+        const rawSec = document.getElementById('rawPanelSection');
+        const bookSec = document.getElementById('bookPanelSection');
+        const navPane = document.getElementById('navPaneContainer');
+        if (rawSec) { rawSec.classList.remove('mobile-hidden-tab', 'mobile-active-tab'); }
+        if (bookSec) { bookSec.classList.remove('mobile-hidden-tab', 'mobile-active-tab'); }
+        if (navPane) { navPane.classList.remove('mobile-active-tab'); }
+    }
+});
+
+// ══════════════════════════════════════════════
 // UTILS
 // ══════════════════════════════════════════════
 function escHtml(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
 </script>
 </body>
 </html>
-
