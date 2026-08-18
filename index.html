@@ -111,27 +111,9 @@
             background-color: rgba(99, 102, 241, 0.08);
             outline: 1px dashed rgba(99, 102, 241, 0.25);
         }
-        .transcript-phrase:hover::after, [data-ts]:hover::after {
-            content: "⏱️ " attr(data-ts) " (انقر مرتين للمزامنة مع الكتاب)";
-            position: absolute;
-            bottom: 100%;
-            right: 0;
-            transform: translateY(-4px);
-            background: #1e1b4b;
-            color: #c7d2fe;
-            border: 1px solid #6366f1;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 6px;
-            white-space: nowrap;
-            z-index: 100;
-            pointer-events: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-        }
-        /* In Book section, custom tooltip */
-        .section-body [data-ts]:hover::after, .page-section [data-ts]:hover::after {
-            content: "⏱️ " attr(data-ts) " (انقر مرتين للانتقال إلى النص المفرغ)";
+        #interactiveTimestampTooltip {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            transition: opacity 0.12s ease, transform 0.12s ease;
         }
         @keyframes syncPulse {
             0% { background-color: rgba(234, 179, 8, 0.85); outline: 3px solid #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.6); }
@@ -967,10 +949,16 @@
                     <i class="fa-solid fa-sitemap text-indigo-400"></i> <span class="hidden sm:inline">التنقل</span>
                 </button>
 
-                <!-- Single-Click Sync Toggle -->
-                <button id="clickSyncToggleBtn" onclick="toggleClickSync()" class="bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-700 text-indigo-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0" title="تفعيل أو إلغاء التحرك التلقائي للقسم الآخر عند الضغط بضغطة واحدة على أي جملة">
-                    <i class="fa-solid fa-link text-indigo-400" id="clickSyncIcon"></i>
-                    <span class="hidden sm:inline">تزامن النقر:</span> <span id="clickSyncStatusText" class="font-bold">مفعل</span>
+                <!-- Panels Sync Toggle (Scroll other panel) -->
+                <button id="panelsSyncToggleBtn" onclick="togglePanelsClickSync()" class="bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-700 text-indigo-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0" title="تفعيل أو إلغاء تحرك شريط التمرير في القسم الآخر عند النقر على الجملة">
+                    <i class="fa-solid fa-link text-indigo-400" id="panelsSyncIcon"></i>
+                    <span class="hidden sm:inline">تزامن الأقسام:</span> <span id="panelsSyncStatusText" class="font-bold">مفعل</span>
+                </button>
+
+                <!-- Audio Sync Toggle (Seek & Play audio) -->
+                <button id="audioSyncToggleBtn" onclick="toggleAudioClickSync()" class="bg-blue-950/80 hover:bg-blue-900/80 border border-blue-700 text-blue-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0" title="تفعيل أو إلغاء تشغيل وانتقال المقطع الصوتي عند النقر على الجملة">
+                    <i class="fa-solid fa-headphones text-blue-400" id="audioSyncIcon"></i>
+                    <span class="hidden sm:inline">تزامن الصوت:</span> <span id="audioSyncStatusText" class="font-bold">مفعل</span>
                 </button>
 
                 <!-- Auto-scroll Toggle -->
@@ -3771,19 +3759,23 @@ function seekAndPlayAudioFile(ts) {
 }
 
 // ── Bidirectional Time-Sync Jump Handlers ──
-function syncToBook(ts) {
+function syncToBook(ts, playAudio = true) {
     if (!ts) return;
     const targetSec = timeStringToSeconds(ts);
 
-    // If audio file is loaded, seek and play directly from this timestamp
-    seekAndPlayAudioFile(ts);
+    // If audio sync is enabled and audio file is loaded
+    if (playAudio && audioClickSyncEnabled) {
+        seekAndPlayAudioFile(ts);
+    }
+
+    if (!panelsClickSyncEnabled && !playAudio) return;
 
     const bookContainer = document.getElementById('pagesContainer');
     if (!bookContainer) return;
 
     const bookElements = Array.from(bookContainer.querySelectorAll('[data-ts], .page-section, p, h1, h2, h3, h4'));
     if (bookElements.length === 0) {
-        showToast(`التوقيت [${ts}] لم يُنسق بعد في صفحات الكتاب`, 'info', 'fa-clock');
+        if (panelsClickSyncEnabled) showToast(`التوقيت [${ts}] لم يُنسق بعد في صفحات الكتاب`, 'info', 'fa-clock');
         return;
     }
 
@@ -3806,23 +3798,27 @@ function syncToBook(ts) {
         closestEl = bookElements[0];
     }
 
-    if (closestEl) {
+    if (closestEl && panelsClickSyncEnabled) {
         if (window.innerWidth < 1024) switchMobileTab('book');
         closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         closestEl.classList.remove('sync-pulse-highlight');
         void closestEl.offsetWidth; // trigger reflow
         closestEl.classList.add('sync-pulse-highlight');
         setTimeout(() => closestEl.classList.remove('sync-pulse-highlight'), 2200);
-        showToast(`الانتقال في الكتاب وتشغيل الصوت من التوقيت [${ts}] ⏱️`, 'success', 'fa-play');
+        showToast(`الانتقال في الكتاب إلى التوقيت [${ts}] ⏱️`, 'success', 'fa-book-open');
     }
 }
 
-function syncToRaw(ts) {
+function syncToRaw(ts, playAudio = true) {
     if (!ts) return;
     const targetSec = timeStringToSeconds(ts);
 
-    // If audio file is loaded, seek and play directly from this timestamp
-    seekAndPlayAudioFile(ts);
+    // If audio sync is enabled and audio file is loaded
+    if (playAudio && audioClickSyncEnabled) {
+        seekAndPlayAudioFile(ts);
+    }
+
+    if (!panelsClickSyncEnabled && !playAudio) return;
 
     const reb = document.getElementById('rawEditBox');
     if (!reb) return;
@@ -3845,14 +3841,14 @@ function syncToRaw(ts) {
         });
     }
 
-    if (closestEl) {
+    if (closestEl && panelsClickSyncEnabled) {
         if (window.innerWidth < 1024) switchMobileTab('raw');
         closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         closestEl.classList.remove('sync-pulse-highlight');
         void closestEl.offsetWidth;
         closestEl.classList.add('sync-pulse-highlight');
         setTimeout(() => closestEl.classList.remove('sync-pulse-highlight'), 2200);
-        showToast(`الانتقال في النص المفرغ وتشغيل الصوت من التوقيت [${ts}] ⏱️`, 'success', 'fa-play');
+        showToast(`الانتقال في النص المفرغ إلى التوقيت [${ts}] ⏱️`, 'success', 'fa-microphone-lines');
     }
 }
 
@@ -5520,13 +5516,16 @@ function convertElementToHeading(el, targetLevel) {
     }
 }
 
-// ── Single-Click Sync Toggle & Handlers ──
-function updateClickSyncUI() {
-    const btn = document.getElementById('clickSyncToggleBtn');
-    const icon = document.getElementById('clickSyncIcon');
-    const txt = document.getElementById('clickSyncStatusText');
+// ── Dual Sync Toggles (Panels & Audio) ──
+let panelsClickSyncEnabled = localStorage.getItem('panels_click_sync_enabled') !== 'false';
+let audioClickSyncEnabled = localStorage.getItem('audio_click_sync_enabled') !== 'false';
+
+function updatePanelsSyncUI() {
+    const btn = document.getElementById('panelsSyncToggleBtn');
+    const icon = document.getElementById('panelsSyncIcon');
+    const txt = document.getElementById('panelsSyncStatusText');
     if (!btn) return;
-    if (clickSyncEnabled) {
+    if (panelsClickSyncEnabled) {
         btn.className = 'bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-700 text-indigo-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0';
         if (icon) icon.className = 'fa-solid fa-link text-indigo-400';
         if (txt) { txt.textContent = 'مفعل'; txt.className = 'font-bold text-emerald-400'; }
@@ -5537,24 +5536,127 @@ function updateClickSyncUI() {
     }
 }
 
-function toggleClickSync() {
-    clickSyncEnabled = !clickSyncEnabled;
-    localStorage.setItem('click_sync_enabled', clickSyncEnabled ? 'true' : 'false');
-    updateClickSyncUI();
-    showToast(clickSyncEnabled ? 'تم تفعيل التزامن والتحرك عند النقر ✓' : 'تم تعطيل التزامن عند النقر', 'info', clickSyncEnabled ? 'fa-link' : 'fa-link-slash');
+function togglePanelsClickSync() {
+    panelsClickSyncEnabled = !panelsClickSyncEnabled;
+    localStorage.setItem('panels_click_sync_enabled', panelsClickSyncEnabled ? 'true' : 'false');
+    updatePanelsSyncUI();
+    showToast(panelsClickSyncEnabled ? 'تم تفعيل تزامن وتحرك الأقسام ✓' : 'تم تعطيل تزامن الأقسام', 'info', panelsClickSyncEnabled ? 'fa-link' : 'fa-link-slash');
+}
+
+function updateAudioSyncUI() {
+    const btn = document.getElementById('audioSyncToggleBtn');
+    const icon = document.getElementById('audioSyncIcon');
+    const txt = document.getElementById('audioSyncStatusText');
+    if (!btn) return;
+    if (audioClickSyncEnabled) {
+        btn.className = 'bg-blue-950/80 hover:bg-blue-900/80 border border-blue-700 text-blue-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0';
+        if (icon) icon.className = 'fa-solid fa-headphones text-blue-400';
+        if (txt) { txt.textContent = 'مفعل'; txt.className = 'font-bold text-emerald-400'; }
+    } else {
+        btn.className = 'bg-gray-900 border border-gray-700 text-gray-400 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0';
+        if (icon) icon.className = 'fa-solid fa-headphones-simple text-gray-500';
+        if (txt) { txt.textContent = 'معطل'; txt.className = 'font-bold text-gray-400'; }
+    }
+}
+
+function toggleAudioClickSync() {
+    audioClickSyncEnabled = !audioClickSyncEnabled;
+    localStorage.setItem('audio_click_sync_enabled', audioClickSyncEnabled ? 'true' : 'false');
+    updateAudioSyncUI();
+    showToast(audioClickSyncEnabled ? 'تم تفعيل تزامن وتشغيل الصوت عند النقر ✓' : 'تم تعطيل تزامن الصوت عند النقر', 'info', audioClickSyncEnabled ? 'fa-headphones' : 'fa-headphones-simple');
+}
+
+// ── Interactive Floating Action Tooltip Management ──
+let activeTooltipEl = null;
+let activeTooltipTs = '';
+let activeTooltipSourcePanel = 'raw'; // 'raw' or 'book'
+let tooltipHideTimeout = null;
+
+function showInteractiveTooltip(targetEl, ts, sourcePanel) {
+    if (!targetEl || !ts) return;
+    clearTimeout(tooltipHideTimeout);
+    activeTooltipEl = targetEl;
+    activeTooltipTs = ts;
+    activeTooltipSourcePanel = sourcePanel;
+
+    const tip = document.getElementById('interactiveTimestampTooltip');
+    const label = document.getElementById('tooltipTimeText');
+    if (!tip || !label) return;
+
+    label.textContent = ts;
+    tip.classList.remove('hidden');
+
+    const rect = targetEl.getBoundingClientRect();
+    const tipWidth = tip.offsetWidth || 180;
+    const tipHeight = tip.offsetHeight || 34;
+
+    let top = rect.top - tipHeight - 6;
+    let left = rect.right - tipWidth;
+
+    if (top < 10) top = rect.bottom + 6;
+    if (left < 10) left = 10;
+    if (left + tipWidth > window.innerWidth - 10) left = window.innerWidth - tipWidth - 10;
+
+    tip.style.top = `${top}px`;
+    tip.style.left = `${left}px`;
+}
+
+function hideInteractiveTooltip(immediate = false) {
+    if (immediate) {
+        const tip = document.getElementById('interactiveTimestampTooltip');
+        if (tip) tip.classList.add('hidden');
+        return;
+    }
+    clearTimeout(tooltipHideTimeout);
+    tooltipHideTimeout = setTimeout(() => {
+        const tip = document.getElementById('interactiveTimestampTooltip');
+        if (tip) tip.classList.add('hidden');
+    }, 280);
+}
+
+function onTooltipAudioClicked(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (activeTooltipTs) {
+        seekAndPlayAudioFile(activeTooltipTs);
+        showToast(`تشغيل المقطع الصوتي من التوقيت [${activeTooltipTs}] 🎵`, 'info', 'fa-video');
+    }
+    hideInteractiveTooltip(true);
+}
+
+function onTooltipPanelSyncClicked(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (activeTooltipTs) {
+        if (activeTooltipSourcePanel === 'raw') {
+            syncToBook(activeTooltipTs, false);
+        } else {
+            syncToRaw(activeTooltipTs, false);
+        }
+    }
+    hideInteractiveTooltip(true);
 }
 
 function initHeadingAndClickSyncListeners() {
-    updateClickSyncUI();
+    updatePanelsSyncUI();
+    updateAudioSyncUI();
 
     const bookContainer = document.getElementById('pagesContainer');
     const rawBox = document.getElementById('rawEditBox');
 
     if (bookContainer) {
-        // Track hovered/active heading and update dropdown live
+        // Track hovered heading and interactive timestamp tooltip
         bookContainer.addEventListener('mouseover', (e) => {
             const item = e.target.closest('h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, p, .margin-label');
             if (item) updateHeadingLevelDropdownFromElement(item);
+
+            const tsTarget = e.target.closest('[data-ts]');
+            if (tsTarget) {
+                const ts = tsTarget.getAttribute('data-ts') || (tsTarget.innerText.match(/\[(\d{2}:\d{2}:\d{2})\]/) || [])[1];
+                if (ts) showInteractiveTooltip(tsTarget, ts, 'book');
+            }
+        });
+
+        bookContainer.addEventListener('mouseleave', () => {
+            hideInteractiveTooltip(false);
         });
 
         // Single click sync from book to raw
@@ -5562,23 +5664,40 @@ function initHeadingAndClickSyncListeners() {
             const item = e.target.closest('h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, p, .margin-label');
             if (item) updateHeadingLevelDropdownFromElement(item);
 
-            if (!clickSyncEnabled) return;
             const tsTarget = e.target.closest('[data-ts]');
             if (tsTarget) {
-                const ts = tsTarget.getAttribute('data-ts');
-                if (ts) syncToRaw(ts);
+                const ts = tsTarget.getAttribute('data-ts') || (tsTarget.innerText.match(/\[(\d{2}:\d{2}:\d{2})\]/) || [])[1];
+                if (ts) {
+                    if (panelsClickSyncEnabled) syncToRaw(ts, audioClickSyncEnabled);
+                    else if (audioClickSyncEnabled) seekAndPlayAudioFile(ts);
+                }
             }
         });
     }
 
     if (rawBox) {
-        // Single click sync from raw to book
-        rawBox.addEventListener('click', (e) => {
-            if (!clickSyncEnabled) return;
+        // Track interactive timestamp tooltip on raw box phrases
+        rawBox.addEventListener('mouseover', (e) => {
             const tsTarget = e.target.closest('[data-ts], .transcript-phrase');
             if (tsTarget) {
-                const ts = tsTarget.getAttribute('data-ts');
-                if (ts) syncToBook(ts);
+                const ts = tsTarget.getAttribute('data-ts') || (tsTarget.innerText.match(/\[(\d{2}:\d{2}:\d{2})\]/) || [])[1];
+                if (ts) showInteractiveTooltip(tsTarget, ts, 'raw');
+            }
+        });
+
+        rawBox.addEventListener('mouseleave', () => {
+            hideInteractiveTooltip(false);
+        });
+
+        // Single click sync from raw to book
+        rawBox.addEventListener('click', (e) => {
+            const tsTarget = e.target.closest('[data-ts], .transcript-phrase');
+            if (tsTarget) {
+                const ts = tsTarget.getAttribute('data-ts') || (tsTarget.innerText.match(/\[(\d{2}:\d{2}:\d{2})\]/) || [])[1];
+                if (ts) {
+                    if (panelsClickSyncEnabled) syncToBook(ts, audioClickSyncEnabled);
+                    else if (audioClickSyncEnabled) seekAndPlayAudioFile(ts);
+                }
             }
         });
     }
@@ -6190,6 +6309,21 @@ function escHtml(s){ return s?(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
             </button>
         </div>
     </div>
+</div>
+
+<!-- ═══════════════ INTERACTIVE FLOATING TIMESTAMP ACTION TOOLTIP ═══════════════ -->
+<div id="interactiveTimestampTooltip" class="fixed hidden z-[9999] bg-gray-950/95 text-indigo-200 border border-indigo-500/80 px-2 py-1.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1.5 text-xs select-none pointer-events-auto" onmouseenter="clearTimeout(tooltipHideTimeout)" onmouseleave="hideInteractiveTooltip(false)">
+    <span id="tooltipTimeBadge" class="font-mono font-bold text-amber-300 flex items-center gap-1 text-[11px] px-1 bg-indigo-950/80 rounded-lg border border-indigo-800/80">
+        <i class="fa-regular fa-clock text-indigo-400"></i> <span id="tooltipTimeText">00:00:00</span>
+    </span>
+    <!-- Video / Audio Seek & Play Button -->
+    <button id="tooltipAudioPlayBtn" onclick="onTooltipAudioClicked(event)" title="الانتقال للتوقيت في المقطع الصوتي وتشغيله مباشرة" class="px-2 py-1 rounded-lg bg-blue-950 hover:bg-blue-900 border border-blue-700 text-blue-300 hover:text-white flex items-center gap-1 text-[10px] font-bold transition shadow-sm">
+        <i class="fa-solid fa-video text-blue-400"></i> تشغيل
+    </button>
+    <!-- I-Cursor / Jump to other panel Button -->
+    <button id="tooltipSyncPanelBtn" onclick="onTooltipPanelSyncClicked(event)" title="الانتقال للجملة المقابلة في القسم الآخر" class="px-2 py-1 rounded-lg bg-indigo-950 hover:bg-indigo-900 border border-indigo-700 text-indigo-300 hover:text-white flex items-center gap-1 text-[10px] font-bold transition shadow-sm">
+        <i class="fa-solid fa-i-cursor text-indigo-400"></i> انتقال
+    </button>
 </div>
 </body>
 </html>
