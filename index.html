@@ -966,6 +966,12 @@
                     <i class="fa-solid fa-sitemap text-indigo-400"></i> <span class="hidden sm:inline">التنقل</span>
                 </button>
 
+                <!-- Single-Click Sync Toggle -->
+                <button id="clickSyncToggleBtn" onclick="toggleClickSync()" class="bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-700 text-indigo-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0" title="تفعيل أو إلغاء التحرك التلقائي للقسم الآخر عند الضغط بضغطة واحدة على أي جملة">
+                    <i class="fa-solid fa-link text-indigo-400" id="clickSyncIcon"></i>
+                    <span class="hidden sm:inline">تزامن النقر:</span> <span id="clickSyncStatusText" class="font-bold">مفعل</span>
+                </button>
+
                 <!-- Auto-scroll Toggle -->
                 <button id="autoScrollBtn" onclick="toggleAutoScroll()" class="bg-emerald-950/80 border border-emerald-700 text-emerald-300 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0">
                     <i class="fa-solid fa-angles-down text-emerald-400"></i> <span class="hidden sm:inline">التمرير:</span> مفعل
@@ -1163,10 +1169,12 @@
                 </button>
 
                 <!-- Heading Converter with Level Dropdown H1 to H10 -->
+                <!-- Heading Converter with Level Dropdown H1 to H10 and Normal Text P -->
                 <div class="flex items-center bg-gray-900 border border-gray-700/80 rounded-lg p-0.5 shadow-sm shrink-0">
-                    <select id="headingLevelSelect" class="bg-transparent text-amber-300 font-bold px-1.5 sm:px-2 py-1 text-xs focus:outline-none cursor-pointer">
+                    <select id="headingLevelSelect" onchange="onHeadingLevelSelectChanged(this.value)" title="نوع ومستوى العنوان الحالي — يتغير تلقائياً مع حركة الفأرة والتحديد" class="bg-transparent text-amber-300 font-bold px-1.5 sm:px-2 py-1 text-xs focus:outline-none cursor-pointer">
+                        <option value="p" class="bg-gray-900 text-gray-300">نص عادي (فقرة P)</option>
                         <option value="h1" class="bg-gray-900 text-amber-300">H1 (رئيسي)</option>
-                        <option value="h2" class="bg-gray-900 text-amber-300">H2 (موضوع)</option>
+                        <option value="h2" class="bg-gray-900 text-amber-300" selected>H2 (موضوع)</option>
                         <option value="h3" class="bg-gray-900 text-amber-300">H3 (فرعي 1)</option>
                         <option value="h4" class="bg-gray-900 text-amber-300">H4 (فرعي 2)</option>
                         <option value="h5" class="bg-gray-900 text-amber-300">H5 (فرعي 3)</option>
@@ -2999,6 +3007,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMicEngine();
     initFileListeners();
     initResizers();
+    initHeadingAndClickSyncListeners();
     firebaseService.init();
     projectManager.init();
 });
@@ -5268,10 +5277,181 @@ function applyHeadingToSelection() {
     }
 }
 
+// ── Live Heading Level Inspector & Dropdown Handlers ──
+let lastHoveredOrActiveHeadingElement = null;
+let clickSyncEnabled = localStorage.getItem('click_sync_enabled') !== 'false';
+
+function updateHeadingLevelDropdownFromElement(el) {
+    if (!el) return;
+    const select = document.getElementById('headingLevelSelect');
+    if (!select) return;
+
+    const heading = el.closest('h1, h2, h3, h4, h5, h6, h7, h8, h9, h10');
+    if (heading) {
+        const tag = heading.tagName.toLowerCase();
+        select.value = tag;
+        select.className = 'bg-amber-950/90 text-amber-300 font-bold px-1.5 sm:px-2 py-1 text-xs focus:outline-none cursor-pointer rounded border border-amber-600/50 shadow-inner';
+        lastHoveredOrActiveHeadingElement = heading;
+        return;
+    }
+
+    const marginLabel = el.closest('.margin-label');
+    if (marginLabel) {
+        const lvl = marginLabel.getAttribute('data-level') || (marginLabel.classList.contains('sub-label') ? '3' : '2');
+        select.value = 'h' + lvl;
+        select.className = 'bg-yellow-950/90 text-yellow-300 font-bold px-1.5 sm:px-2 py-1 text-xs focus:outline-none cursor-pointer rounded border border-yellow-600/50';
+        lastHoveredOrActiveHeadingElement = marginLabel;
+        return;
+    }
+
+    const p = el.closest('p, .section-body > div');
+    if (p) {
+        select.value = 'p';
+        select.className = 'bg-transparent text-gray-300 font-bold px-1.5 sm:px-2 py-1 text-xs focus:outline-none cursor-pointer';
+        lastHoveredOrActiveHeadingElement = p;
+    }
+}
+
+function onHeadingLevelSelectChanged(targetLevel) {
+    const sel = window.getSelection();
+    const hasSelection = sel && sel.rangeCount > 0 && !sel.isCollapsed;
+
+    if (targetLevel === 'p') {
+        if (hasSelection) {
+            applyNormalTextToSelection();
+        } else if (lastHoveredOrActiveHeadingElement) {
+            convertElementToParagraph(lastHoveredOrActiveHeadingElement);
+        } else {
+            showToast('اختر أو حدد العنوان المراد تحويله لنص عادي', 'info', 'fa-paragraph');
+        }
+        return;
+    }
+
+    if (hasSelection) {
+        applyHeadingToSelection(targetLevel);
+    } else if (lastHoveredOrActiveHeadingElement) {
+        convertElementToHeading(lastHoveredOrActiveHeadingElement, targetLevel);
+    } else {
+        showToast(`حدد النص المراد تحويله إلى ${targetLevel.toUpperCase()}`, 'info', 'fa-heading');
+    }
+}
+
+function convertElementToParagraph(el) {
+    if (!el) return;
+    const heading = el.closest('h1, h2, h3, h4, h5, h6, h7, h8, h9, h10') || el;
+    if (heading.tagName === 'P') return;
+
+    const p = document.createElement('p');
+    p.innerHTML = heading.innerHTML;
+    if (heading.hasAttribute('data-ts')) p.setAttribute('data-ts', heading.getAttribute('data-ts'));
+    if (heading.hasAttribute('title')) p.setAttribute('title', heading.getAttribute('title'));
+
+    const parent = heading.parentNode;
+    if (parent) {
+        parent.replaceChild(p, heading);
+        updateNavPane();
+        syncSectionMargin(p.closest('.page-section'));
+        updateHeadingLevelDropdownFromElement(p);
+        setFormatStatus('تم تحويل العنوان إلى نص عادي (فقرة) ✓', 'text-slate-300 font-bold');
+        historyManager.pushState('تحويل عنوان لفقرة عادية', true);
+    }
+}
+
+function convertElementToHeading(el, targetLevel) {
+    if (!el) return;
+    const targetTag = targetLevel.toUpperCase();
+    const currentEl = el.closest('h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, p') || el;
+    if (currentEl.tagName === targetTag) return;
+
+    const newH = document.createElement(targetTag);
+    newH.innerHTML = currentEl.innerHTML;
+    newH.id = currentEl.id || ('heading-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5));
+    if (currentEl.hasAttribute('data-ts')) newH.setAttribute('data-ts', currentEl.getAttribute('data-ts'));
+    if (currentEl.hasAttribute('title')) newH.setAttribute('title', currentEl.getAttribute('title'));
+
+    const parent = currentEl.parentNode;
+    if (parent) {
+        parent.replaceChild(newH, currentEl);
+        updateNavPane();
+        syncSectionMargin(newH.closest('.page-section'));
+        updateHeadingLevelDropdownFromElement(newH);
+        setFormatStatus(`تم تغيير مستوى العنوان إلى ${targetTag} ✓`, 'text-amber-400 font-bold');
+        historyManager.pushState(`تغيير مستوى عنوان إلى ${targetTag}`, true);
+    }
+}
+
+// ── Single-Click Sync Toggle & Handlers ──
+function updateClickSyncUI() {
+    const btn = document.getElementById('clickSyncToggleBtn');
+    const icon = document.getElementById('clickSyncIcon');
+    const txt = document.getElementById('clickSyncStatusText');
+    if (!btn) return;
+    if (clickSyncEnabled) {
+        btn.className = 'bg-indigo-950/80 hover:bg-indigo-900/80 border border-indigo-700 text-indigo-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0';
+        if (icon) icon.className = 'fa-solid fa-link text-indigo-400';
+        if (txt) { txt.textContent = 'مفعل'; txt.className = 'font-bold text-emerald-400'; }
+    } else {
+        btn.className = 'bg-gray-900 border border-gray-700 text-gray-400 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0';
+        if (icon) icon.className = 'fa-solid fa-link-slash text-gray-500';
+        if (txt) { txt.textContent = 'معطل'; txt.className = 'font-bold text-gray-400'; }
+    }
+}
+
+function toggleClickSync() {
+    clickSyncEnabled = !clickSyncEnabled;
+    localStorage.setItem('click_sync_enabled', clickSyncEnabled ? 'true' : 'false');
+    updateClickSyncUI();
+    showToast(clickSyncEnabled ? 'تم تفعيل التزامن والتحرك عند النقر ✓' : 'تم تعطيل التزامن عند النقر', 'info', clickSyncEnabled ? 'fa-link' : 'fa-link-slash');
+}
+
+function initHeadingAndClickSyncListeners() {
+    updateClickSyncUI();
+
+    const bookContainer = document.getElementById('pagesContainer');
+    const rawBox = document.getElementById('rawEditBox');
+
+    if (bookContainer) {
+        // Track hovered/active heading and update dropdown live
+        bookContainer.addEventListener('mouseover', (e) => {
+            const item = e.target.closest('h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, p, .margin-label');
+            if (item) updateHeadingLevelDropdownFromElement(item);
+        });
+
+        // Single click sync from book to raw
+        bookContainer.addEventListener('click', (e) => {
+            const item = e.target.closest('h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, p, .margin-label');
+            if (item) updateHeadingLevelDropdownFromElement(item);
+
+            if (!clickSyncEnabled) return;
+            const tsTarget = e.target.closest('[data-ts]');
+            if (tsTarget) {
+                const ts = tsTarget.getAttribute('data-ts');
+                if (ts) syncToRaw(ts);
+            }
+        });
+    }
+
+    if (rawBox) {
+        // Single click sync from raw to book
+        rawBox.addEventListener('click', (e) => {
+            if (!clickSyncEnabled) return;
+            const tsTarget = e.target.closest('[data-ts], .transcript-phrase');
+            if (tsTarget) {
+                const ts = tsTarget.getAttribute('data-ts');
+                if (ts) syncToBook(ts);
+            }
+        });
+    }
+}
+
 // ── Reset to Normal Text (No heading, no bold) ──
 function applyNormalTextToSelection() {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        if (lastHoveredOrActiveHeadingElement) {
+            convertElementToParagraph(lastHoveredOrActiveHeadingElement);
+            return;
+        }
         alert('يرجى تحديد النص أو العنوان المراد إعادته إلى نص عادي أولاً.');
         return;
     }
@@ -5301,6 +5481,7 @@ function applyNormalTextToSelection() {
 
         updateNavPane();
         syncSectionMargin(container.closest('.page-section'));
+        updateHeadingLevelDropdownFromElement(pEl);
         setFormatStatus('تمت إعادة العنوان إلى فقرة نصية عادية ✓', 'text-slate-300 font-bold');
         historyManager.pushState('إعادة عنوان لفقرة عادية', true);
         return;
