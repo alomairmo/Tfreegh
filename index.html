@@ -7,6 +7,7 @@
     <!-- Firebase SDKs (Compat version for reliable standalone execution) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
@@ -2023,6 +2024,61 @@ const firebaseService = {
             console.warn('Firebase fetch projects notice:', e);
             return [];
         }
+    },
+
+    async uploadAudioFile(projectId, file, onProgress) {
+        if (!file) return null;
+        if (!this.isConnected || !this.isInitialized || typeof firebase === 'undefined' || !firebase.storage) {
+            // Local Data URL Fallback
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ url: reader.result, isCloud: false });
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        try {
+            const storage = firebase.storage();
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storageRef = storage.ref(`projects_audio/${projectId}/${Date.now()}_${safeName}`);
+            const uploadTask = storageRef.put(file);
+
+            return new Promise((resolve) => {
+                uploadTask.on('state_changed',
+                    (snapshot) => {
+                        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+                        if (onProgress) onProgress(progress);
+                    },
+                    (error) => {
+                        console.warn('Firebase storage upload notice, using data URL fallback:', error);
+                        const reader = new FileReader();
+                        reader.onload = () => resolve({ url: reader.result, isCloud: false });
+                        reader.onerror = () => resolve(null);
+                        reader.readAsDataURL(file);
+                    },
+                    async () => {
+                        try {
+                            const downloadUrl = await uploadTask.snapshot.ref.getDownloadURL();
+                            resolve({ url: downloadUrl, isCloud: true });
+                        } catch(e) {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve({ url: reader.result, isCloud: false });
+                            reader.onerror = () => resolve(null);
+                            reader.readAsDataURL(file);
+                        }
+                    }
+                );
+            });
+        } catch (e) {
+            console.warn('Storage upload catch error, using data URL:', e);
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ url: reader.result, isCloud: false });
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(file);
+            });
+        }
     }
 };
 
@@ -2546,10 +2602,34 @@ class ProjectManager {
         updateNavPane();
         document.getElementById('timerDisplay').textContent = fmtTs(secondsElapsed);
 
+        // Restore Audio File and Last Playback Position across devices!
+        if (proj.audioUrl) {
+            const fpb = document.getElementById('filePlayerBar');
+            if (fpb) fpb.classList.remove('hidden');
+            fileAudioEl = document.getElementById('fileAudioElement');
+            if (fileAudioEl) {
+                if (fileAudioEl.src !== proj.audioUrl) {
+                    fileAudioEl.src = proj.audioUrl;
+                }
+                const savedPos = parseFloat(proj.audioPosition) || 0;
+                fileAudioEl.currentTime = savedPos;
+                const fnd = document.getElementById('fileNameDisplay');
+                if (fnd) fnd.textContent = proj.audioFileName || 'الملف الصوتي المرفق';
+                const ftd = document.getElementById('fileTimeDisplay');
+                if (ftd) ftd.textContent = `${fmtTs(Math.floor(savedPos))} / 00:00`;
+                const fBar = document.getElementById('fileSeekBar');
+                if (fBar) fBar.value = savedPos;
+            }
+        }
+
         historyManager.resetWithInitialState('فتح المشروع');
 
         if (notify) {
-            showToast(`تم فتح المشروع: "${proj.title}"`, 'info', 'fa-folder-open');
+            if (proj.audioUrl && proj.audioPosition > 0) {
+                showToast(`تم استعادة المشروع والملف الصوتي عند موضع التوقف [${fmtTs(Math.floor(proj.audioPosition))}] 🎵`, 'success', 'fa-play');
+            } else {
+                showToast(`تم فتح المشروع: "${proj.title}"`, 'info', 'fa-folder-open');
+            }
         }
     }
 
@@ -2588,6 +2668,11 @@ class ProjectManager {
         proj.previewText = preview;
         proj.updatedAt = Date.now();
         proj.clientId = CLIENT_SESSION_ID;
+
+        // Save last audio playback position
+        if (fileAudioEl && !isNaN(fileAudioEl.currentTime)) {
+            proj.audioPosition = fileAudioEl.currentTime;
+        }
 
         this.saveLocalProjects();
 
@@ -4085,11 +4170,43 @@ async function startSystem() {
 async function handleFileUpload(ev) {
     const file = ev.target.files[0]; if (!file) return;
     fileAudioEl = document.getElementById('fileAudioElement');
-    fileAudioEl.src = URL.createObjectURL(file);
+    const localUrl = URL.createObjectURL(file);
+    fileAudioEl.src = localUrl;
+    
     document.getElementById('filePlayerBar').classList.remove('hidden');
-    document.getElementById('fileNameDisplay').textContent = file.name;
+    const fnd = document.getElementById('fileNameDisplay');
+    if (fnd) fnd.textContent = file.name;
+    
     if (isListening) stopListening();
     confirmClearAll(false);
+
+    // Save audio info to active project
+    const currProj = typeof projectManager !== 'undefined' ? projectManager.currentProject : null;
+    if (currProj) {
+        currProj.audioFileName = file.name;
+        currProj.audioPosition = 0;
+        currProj.audioUrl = localUrl;
+    }
+
+    // Upload to Firebase Storage in background so it's accessible from any device
+    showToast('جاري رفع المقطع الصوتي وحفظه في سحابة Firebase...', 'info', 'fa-cloud-arrow-up');
+    firebaseService.uploadAudioFile(currProj ? currProj.id : ('temp_' + Date.now()), file, (progress) => {
+        if (fnd) fnd.textContent = `${file.name} (${progress}%)`;
+    }).then(res => {
+        if (res && res.url) {
+            if (currProj) {
+                currProj.audioUrl = res.url;
+                currProj.audioFileName = file.name;
+                currProj.isCloudAudio = res.isCloud;
+                projectManager.saveCurrentProject(true);
+            }
+            if (fnd) fnd.textContent = file.name;
+            showToast('✓ تم حفظ المقطع الصوتي في الاستضافة السحابية!', 'success', 'fa-cloud-check');
+        }
+    }).catch(err => {
+        console.warn('Audio cloud upload fallback:', err);
+    });
+
     await startFile();
 }
 
@@ -4133,7 +4250,12 @@ function toggleFilePlay() {
     }
 }
 
-function seekFile(v) { if (fileAudioEl) fileAudioEl.currentTime = parseFloat(v); }
+function seekFile(v) { 
+    if (fileAudioEl) {
+        fileAudioEl.currentTime = parseFloat(v); 
+        if (typeof projectManager !== 'undefined') projectManager.scheduleAutoSave();
+    }
+}
 
 function jumpAudioSeconds(delta) {
     if (!fileAudioEl) return;
@@ -4153,6 +4275,8 @@ function jumpAudioSeconds(delta) {
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) timerDisplay.textContent = fmtTs(secondsElapsed);
 
+    if (typeof projectManager !== 'undefined') projectManager.scheduleAutoSave();
+
     const sign = delta > 0 ? `+${delta}` : `${delta}`;
     showToast(`تم القفز في المقطع الصوتي (${sign} ثانية) ⏱️`, 'info', delta > 0 ? 'fa-forward' : 'fa-backward');
 }
@@ -4167,16 +4291,32 @@ function setAudioPlaybackRate(rate) {
 
 function initFileListeners() {
     fileAudioEl = document.getElementById('fileAudioElement');
-    const bar=document.getElementById('fileSeekBar'), td=document.getElementById('fileTimeDisplay');
-    fileAudioEl.addEventListener('timeupdate', ()=>{
-        if(!fileAudioEl.duration) return;
-        const c=fileAudioEl.currentTime, d=fileAudioEl.duration;
-        bar.max=d; bar.value=c;
-        td.textContent=`${fmtTs(Math.floor(c))} / ${fmtTs(Math.floor(d))}`;
-        secondsElapsed=Math.floor(c);
-        document.getElementById('timerDisplay').textContent=fmtTs(secondsElapsed);
+    const bar = document.getElementById('fileSeekBar');
+    const td = document.getElementById('fileTimeDisplay');
+    if (!fileAudioEl) return;
+    
+    fileAudioEl.addEventListener('timeupdate', () => {
+        if (!fileAudioEl.duration) return;
+        const c = fileAudioEl.currentTime;
+        const d = fileAudioEl.duration;
+        if (bar) { bar.max = d; bar.value = c; }
+        if (td) td.textContent = `${fmtTs(Math.floor(c))} / ${fmtTs(Math.floor(d))}`;
+        secondsElapsed = Math.floor(c);
+        const timerDisplay = document.getElementById('timerDisplay');
+        if (timerDisplay) timerDisplay.textContent = fmtTs(secondsElapsed);
     });
-    fileAudioEl.addEventListener('ended',()=>{ stopListening(); setStatus('اكتمل تفريغ الملف!','text-emerald-400 font-bold'); });
+
+    fileAudioEl.addEventListener('pause', () => {
+        if (typeof projectManager !== 'undefined') projectManager.scheduleAutoSave();
+    });
+    fileAudioEl.addEventListener('seeked', () => {
+        if (typeof projectManager !== 'undefined') projectManager.scheduleAutoSave();
+    });
+    fileAudioEl.addEventListener('ended', () => { 
+        stopListening(); 
+        setStatus('اكتمل تفريغ وتشغيل الملف!', 'text-emerald-400 font-bold'); 
+        if (typeof projectManager !== 'undefined') projectManager.scheduleAutoSave();
+    });
 }
 
 // ══════════════════════════════════════════════
