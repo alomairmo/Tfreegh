@@ -876,7 +876,7 @@
                     </button>
 
                     <!-- Auto-Format Settings Popover -->
-                    <div id="autoFormatPopover" class="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-gray-900/95 border border-indigo-700/80 rounded-2xl shadow-2xl p-4 hidden z-50 text-xs text-gray-200 backdrop-blur-xl">
+                    <div id="autoFormatPopover" class="absolute left-0 top-full mt-2 w-80 max-w-[90vw] max-h-[85vh] overflow-y-auto no-scrollbar bg-gray-900/95 border border-indigo-700/80 rounded-2xl shadow-2xl p-4 hidden z-50 text-xs text-gray-200 backdrop-blur-xl">
                         <div class="flex items-center justify-between border-b border-gray-800 pb-2 mb-3">
                             <span class="font-bold text-indigo-300 flex items-center gap-1.5">
                                 <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> إعدادات التنسيق التلقائي
@@ -913,6 +913,46 @@
                                 <span id="autoFormatDelayDisplay" class="font-bold text-indigo-300 font-mono text-xs bg-gray-900 px-2 py-0.5 rounded border border-gray-700">10 ثوانٍ</span>
                             </div>
                             <input type="range" id="autoFormatDelaySlider" min="3" max="60" step="1" value="10" oninput="updateAutoFormatDelay(this.value)" class="w-full h-1.5 accent-amber-500 cursor-pointer">
+                        </div>
+
+                        <!-- Stages of Auto-Formatting -->
+                        <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-2 mb-3">
+                            <div class="flex items-center justify-between border-b border-gray-800 pb-1.5 mb-1">
+                                <span class="font-bold text-gray-300 flex items-center gap-1.5 text-[11px]">
+                                    <i class="fa-solid fa-layer-group text-indigo-400"></i> مراحل التنسيق للنص الجديد:
+                                </span>
+                                <div class="flex items-center gap-2 text-[10px]">
+                                    <button onclick="selectAllStages(true)" class="text-indigo-400 hover:text-indigo-300 font-bold transition">الكل</button>
+                                    <span class="text-gray-600">|</span>
+                                    <button onclick="selectAllStages(false)" class="text-gray-400 hover:text-gray-200 font-bold transition">إلغاء</button>
+                                </div>
+                            </div>
+                            <div class="space-y-1 text-[11px]">
+                                <label class="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-900 cursor-pointer transition select-none">
+                                    <input type="checkbox" id="auto_stage_spelling" checked onchange="updateStageConfigFromAuto(this)" class="rounded accent-indigo-500 w-3.5 h-3.5 cursor-pointer">
+                                    <span class="flex-1 text-gray-300">1. التصحيح اللغوي والإملائي</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-900 cursor-pointer transition select-none">
+                                    <input type="checkbox" id="auto_stage_punctuation" checked onchange="updateStageConfigFromAuto(this)" class="rounded accent-indigo-500 w-3.5 h-3.5 cursor-pointer">
+                                    <span class="flex-1 text-gray-300">2. علامات الترقيم العربية</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-900 cursor-pointer transition select-none">
+                                    <input type="checkbox" id="auto_stage_paragraphing" checked onchange="updateStageConfigFromAuto(this)" class="rounded accent-indigo-500 w-3.5 h-3.5 cursor-pointer">
+                                    <span class="flex-1 text-gray-300">3. التفقير (سطر لكل فكرة)</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-900 cursor-pointer transition select-none">
+                                    <input type="checkbox" id="auto_stage_emphasis" checked onchange="updateStageConfigFromAuto(this)" class="rounded accent-indigo-500 w-3.5 h-3.5 cursor-pointer">
+                                    <span class="flex-1 text-gray-300">4. تشديد الكلمات المهمة</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-900 cursor-pointer transition select-none">
+                                    <input type="checkbox" id="auto_stage_mainHeadings" checked onchange="updateStageConfigFromAuto(this)" class="rounded accent-indigo-500 w-3.5 h-3.5 cursor-pointer">
+                                    <span class="flex-1 text-gray-300">5. إضافة عناوين رئيسية (H2/H3)</span>
+                                </label>
+                                <label class="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-900 cursor-pointer transition select-none">
+                                    <input type="checkbox" id="auto_stage_sideHeadings" checked onchange="updateStageConfigFromAuto(this)" class="rounded accent-indigo-500 w-3.5 h-3.5 cursor-pointer">
+                                    <span class="flex-1 text-gray-300">6. إضافة عناوين جانبية (الهامش)</span>
+                                </label>
+                            </div>
                         </div>
 
                         <!-- Trigger Immediate Format -->
@@ -2911,10 +2951,13 @@ function loadConfig() {
         if (afwSlider) afwSlider.value = afw;
         if (afwDisplay) afwDisplay.textContent = afw + ' كلمة';
 
-        // Load stage checkboxes
+        // Load stage checkboxes in both popovers
         ['spelling','punctuation','paragraphing','emphasis','mainHeadings','sideHeadings'].forEach(k => {
+            const isChecked = (cfg.stages && cfg.stages[k] !== false);
             const el = document.getElementById('stage_' + k);
-            if (el && cfg.stages) el.checked = (cfg.stages[k] !== false);
+            const autoEl = document.getElementById('auto_stage_' + k);
+            if (el) el.checked = isChecked;
+            if (autoEl) autoEl.checked = isChecked;
         });
     } catch(e) {}
 }
@@ -3163,7 +3206,24 @@ function updateStageConfig() {
     if (!cfg.stages) cfg.stages = {};
     ['spelling','punctuation','paragraphing','emphasis','mainHeadings','sideHeadings'].forEach(k => {
         const el = document.getElementById('stage_' + k);
-        if (el) cfg.stages[k] = el.checked;
+        const autoEl = document.getElementById('auto_stage_' + k);
+        if (el) {
+            cfg.stages[k] = el.checked;
+            if (autoEl) autoEl.checked = el.checked;
+        }
+    });
+    localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
+}
+
+function updateStageConfigFromAuto(sourceEl) {
+    if (!cfg.stages) cfg.stages = {};
+    ['spelling','punctuation','paragraphing','emphasis','mainHeadings','sideHeadings'].forEach(k => {
+        const autoEl = document.getElementById('auto_stage_' + k);
+        const el = document.getElementById('stage_' + k);
+        if (autoEl) {
+            cfg.stages[k] = autoEl.checked;
+            if (el) el.checked = autoEl.checked;
+        }
     });
     localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
 }
@@ -3172,10 +3232,10 @@ function selectAllStages(val) {
     if (!cfg.stages) cfg.stages = {};
     ['spelling','punctuation','paragraphing','emphasis','mainHeadings','sideHeadings'].forEach(k => {
         const el = document.getElementById('stage_' + k);
-        if (el) {
-            el.checked = val;
-            cfg.stages[k] = val;
-        }
+        const autoEl = document.getElementById('auto_stage_' + k);
+        if (el) el.checked = val;
+        if (autoEl) autoEl.checked = val;
+        cfg.stages[k] = val;
     });
     localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
 }
