@@ -787,17 +787,54 @@
     </div>
 
     <!-- File Player -->
-    <div id="filePlayerBar" class="hidden flex-1 max-w-md bg-gray-900 border border-blue-900/60 px-3 py-1 rounded-xl flex items-center gap-3">
+    <div id="filePlayerBar" class="hidden flex-1 max-w-xl bg-gray-900/95 border border-blue-900/60 px-2.5 py-1 rounded-xl flex items-center gap-1.5 sm:gap-2 shadow-lg flex-wrap sm:flex-nowrap">
         <audio id="fileAudioElement" class="hidden"></audio>
-        <button onclick="toggleFilePlay()" class="w-7 h-7 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shrink-0">
+        
+        <!-- Play / Pause -->
+        <button onclick="toggleFilePlay()" id="filePlayBtn" title="تشغيل / إيقاف مؤقت" class="w-7 h-7 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-md transition">
             <i id="filePlayIcon" class="fa-solid fa-play text-xs"></i>
         </button>
-        <div class="flex-1 flex flex-col min-w-0">
+
+        <!-- Jump Backward: -30s and -10s -->
+        <div class="flex items-center gap-1 shrink-0">
+            <button onclick="jumpAudioSeconds(-30)" title="تأخير 30 ثانية (-30s)" class="px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center justify-center text-[10px] font-bold transition font-mono border border-gray-700/60 shadow-sm">
+                -30s
+            </button>
+            <button onclick="jumpAudioSeconds(-10)" title="تأخير 10 ثوانٍ (-10s)" class="px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center justify-center text-[10px] font-bold transition font-mono border border-gray-700/60 shadow-sm">
+                -10s
+            </button>
+        </div>
+
+        <!-- Jump Forward: +10s and +30s -->
+        <div class="flex items-center gap-1 shrink-0">
+            <button onclick="jumpAudioSeconds(10)" title="تقديم 10 ثوانٍ (+10s)" class="px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center justify-center text-[10px] font-bold transition font-mono border border-gray-700/60 shadow-sm">
+                +10s
+            </button>
+            <button onclick="jumpAudioSeconds(30)" title="تقديم 30 ثانية (+30s)" class="px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white flex items-center justify-center text-[10px] font-bold transition font-mono border border-gray-700/60 shadow-sm">
+                +30s
+            </button>
+        </div>
+
+        <!-- Seek Bar & Time Display -->
+        <div class="flex-1 flex flex-col min-w-[120px]">
             <div class="flex justify-between text-[10px] mb-0.5">
-                <span id="fileNameDisplay" class="font-semibold text-blue-300 truncate max-w-[150px]">الملف...</span>
+                <span id="fileNameDisplay" class="font-semibold text-blue-300 truncate max-w-[110px]">الملف...</span>
                 <span id="fileTimeDisplay" class="font-mono text-gray-400">00:00 / 00:00</span>
             </div>
             <input type="range" id="fileSeekBar" min="0" value="0" step="0.1" oninput="seekFile(this.value)" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+        </div>
+
+        <!-- Playback Speed Control -->
+        <div class="relative shrink-0 flex items-center">
+            <select id="audioSpeedSelect" onchange="setAudioPlaybackRate(parseFloat(this.value))" title="سرعة تشغيل الصوت" class="bg-gray-800 hover:bg-gray-700 text-blue-300 border border-blue-900/60 rounded-lg px-1.5 py-1 text-[10px] font-bold font-mono outline-none cursor-pointer shadow-sm">
+                <option value="0.5">0.5x</option>
+                <option value="0.75">0.75x</option>
+                <option value="1" selected>1.0x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="1.75">1.75x</option>
+                <option value="2">2.0x</option>
+            </select>
         </div>
     </div>
 
@@ -3611,10 +3648,41 @@ function appendToRaw(text, customTs = null) {
     historyManager.pushState('إضافة نص بالتوقيت في الصندوق');
 }
 
+// ── Audio File Seeking & Playback ──
+function seekAndPlayAudioFile(ts) {
+    if (!fileAudioEl || !fileAudioEl.src) return;
+    const targetSec = timeStringToSeconds(ts);
+    if (isNaN(targetSec)) return;
+
+    fileAudioEl.currentTime = targetSec;
+    const fpi = document.getElementById('filePlayIcon');
+    const fpb = document.getElementById('filePlayerBar');
+
+    const playPromise = fileAudioEl.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            if (fpi) fpi.className = 'fa-solid fa-pause text-xs';
+            isListening = true;
+            setUIState(true);
+            if (fpb) {
+                fpb.classList.remove('hidden');
+                fpb.classList.add('ring-2', 'ring-blue-500');
+                setTimeout(() => fpb.classList.remove('ring-2', 'ring-blue-500'), 1500);
+            }
+        }).catch(err => {
+            console.warn('Audio seek play notice:', err);
+        });
+    }
+}
+
 // ── Bidirectional Time-Sync Jump Handlers ──
 function syncToBook(ts) {
     if (!ts) return;
     const targetSec = timeStringToSeconds(ts);
+
+    // If audio file is loaded, seek and play directly from this timestamp
+    seekAndPlayAudioFile(ts);
+
     const bookContainer = document.getElementById('pagesContainer');
     if (!bookContainer) return;
 
@@ -3650,13 +3718,17 @@ function syncToBook(ts) {
         void closestEl.offsetWidth; // trigger reflow
         closestEl.classList.add('sync-pulse-highlight');
         setTimeout(() => closestEl.classList.remove('sync-pulse-highlight'), 2200);
-        showToast(`الانتقال في الكتاب إلى التوقيت [${ts}] ⏱️`, 'success', 'fa-arrow-left');
+        showToast(`الانتقال في الكتاب وتشغيل الصوت من التوقيت [${ts}] ⏱️`, 'success', 'fa-play');
     }
 }
 
 function syncToRaw(ts) {
     if (!ts) return;
     const targetSec = timeStringToSeconds(ts);
+
+    // If audio file is loaded, seek and play directly from this timestamp
+    seekAndPlayAudioFile(ts);
+
     const reb = document.getElementById('rawEditBox');
     if (!reb) return;
 
@@ -3685,7 +3757,7 @@ function syncToRaw(ts) {
         void closestEl.offsetWidth;
         closestEl.classList.add('sync-pulse-highlight');
         setTimeout(() => closestEl.classList.remove('sync-pulse-highlight'), 2200);
-        showToast(`الانتقال في النص المفرغ إلى التوقيت [${ts}] ⏱️`, 'success', 'fa-arrow-right');
+        showToast(`الانتقال في النص المفرغ وتشغيل الصوت من التوقيت [${ts}] ⏱️`, 'success', 'fa-play');
     }
 }
 
@@ -4052,6 +4124,36 @@ function toggleFilePlay() {
 }
 
 function seekFile(v) { if (fileAudioEl) fileAudioEl.currentTime = parseFloat(v); }
+
+function jumpAudioSeconds(delta) {
+    if (!fileAudioEl) return;
+    const duration = fileAudioEl.duration || Infinity;
+    const current = fileAudioEl.currentTime || 0;
+    const newTime = Math.max(0, Math.min(duration, current + delta));
+    fileAudioEl.currentTime = newTime;
+    
+    // Update seek bar and timer immediately
+    const bar = document.getElementById('fileSeekBar');
+    if (bar) bar.value = newTime;
+    const td = document.getElementById('fileTimeDisplay');
+    if (td && fileAudioEl.duration) {
+        td.textContent = `${fmtTs(Math.floor(newTime))} / ${fmtTs(Math.floor(fileAudioEl.duration))}`;
+    }
+    secondsElapsed = Math.floor(newTime);
+    const timerDisplay = document.getElementById('timerDisplay');
+    if (timerDisplay) timerDisplay.textContent = fmtTs(secondsElapsed);
+
+    const sign = delta > 0 ? `+${delta}` : `${delta}`;
+    showToast(`تم القفز في المقطع الصوتي (${sign} ثانية) ⏱️`, 'info', delta > 0 ? 'fa-forward' : 'fa-backward');
+}
+
+function setAudioPlaybackRate(rate) {
+    if (!fileAudioEl) return;
+    fileAudioEl.playbackRate = rate;
+    const select = document.getElementById('audioSpeedSelect');
+    if (select) select.value = String(rate);
+    showToast(`تم ضبط سرعة الصوت إلى ${rate}x ⚡`, 'info', 'fa-gauge-high');
+}
 
 function initFileListeners() {
     fileAudioEl = document.getElementById('fileAudioElement');
