@@ -776,14 +776,14 @@
 
     <!-- 75% LEFT: PDF Book View -->
     <section id="bookPanelSection" class="w-full lg:w-3/4 flex flex-col overflow-hidden mobile-active-tab lg:flex">
-        <div class="p-2.5 sm:p-3 border-b border-gray-800 bg-gray-900/80 shrink-0 flex items-center justify-between gap-2 sm:gap-3 overflow-x-auto no-scrollbar touch-scroll">
+        <div class="p-2.5 sm:p-3 border-b border-gray-800 bg-gray-900/80 shrink-0 flex items-center justify-between gap-2 sm:gap-3 overflow-visible relative z-30 flex-wrap">
             <div class="flex items-center gap-2 shrink-0">
                 <i class="fa-solid fa-book text-amber-400"></i>
                 <p class="text-xs font-bold text-white whitespace-nowrap">عرض الكتاب — A4</p>
                 <span class="text-[10px] text-gray-500 hidden md:inline whitespace-nowrap">(العناوين الجانبية على الهامش)</span>
                 <span id="formatStatus" class="text-[11px] font-semibold text-emerald-400 mr-2 whitespace-nowrap"></span>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
                 <!-- Navigation Pane Toggle -->
                 <button onclick="toggleNavPane()" id="navPaneToggleBtn" class="bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-700 text-indigo-200 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0">
                     <i class="fa-solid fa-sitemap text-indigo-400"></i> <span class="hidden sm:inline">التنقل</span>
@@ -802,9 +802,62 @@
                         class="w-14 sm:w-20 h-1 accent-amber-500 cursor-pointer">
                     <span id="fontSizeLabel" class="text-amber-300 font-bold text-xs w-6 sm:w-7">16</span>
                 </div>
-                <button onclick="formatIncremental()" id="incrementalFormatBtn" title="تنسيق الأجزاء الجديدة غير المنسقة وإضافتها للكتاب مباشرة" class="bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-700 text-indigo-200 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0">
-                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-300"></i> <span class="hidden xs:inline">تنسيق الجديد</span>
-                </button>
+
+                <!-- Incremental / Auto-Format button with Settings Gear Dropdown -->
+                <div class="relative inline-flex items-center shrink-0">
+                    <button onclick="formatIncremental()" id="incrementalFormatBtn" title="تنسيق الأجزاء الجديدة غير المنسقة وإضافتها للكتاب مباشرة" class="bg-indigo-900/70 hover:bg-indigo-800 border border-indigo-700 text-indigo-200 px-2.5 sm:px-3 py-1.5 rounded-r-lg text-xs font-bold flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-wand-magic-sparkles text-indigo-300"></i> <span class="hidden xs:inline">تنسيق النص الجديد</span>
+                    </button>
+                    <button onclick="toggleAutoFormatPopover(event)" id="autoFormatGearBtn" title="إعدادات سرعة وكلمات التنسيق التلقائي" class="bg-indigo-950/90 hover:bg-indigo-800 border-t border-b border-l border-indigo-700 text-indigo-300 px-2 sm:px-2.5 py-1.5 rounded-l-lg text-xs transition flex items-center justify-center">
+                        <i class="fa-solid fa-sliders"></i>
+                    </button>
+
+                    <!-- Auto-Format Settings Popover -->
+                    <div id="autoFormatPopover" class="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-gray-900/95 border border-indigo-700/80 rounded-2xl shadow-2xl p-4 hidden z-50 text-xs text-gray-200 backdrop-blur-xl">
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2 mb-3">
+                            <span class="font-bold text-indigo-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> إعدادات التنسيق التلقائي
+                            </span>
+                            <button onclick="toggleAutoFormatPopover(event)" class="text-gray-400 hover:text-white p-1 text-xs"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mb-3 leading-relaxed">التحكم في موعد وكيفية معالجة النصوص وتنسيقها في صفحات الكتاب تلقائياً:</p>
+                        
+                        <!-- Trigger by word count -->
+                        <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-2 mb-3">
+                            <div class="flex items-center justify-between">
+                                <label class="font-bold text-gray-300 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-cubes-stacked text-indigo-400"></i> التنسيق بعد كل:
+                                </label>
+                                <span id="autoFormatWordsDisplay" class="font-bold text-amber-300 font-mono text-xs bg-gray-900 px-2 py-0.5 rounded border border-gray-700">80 كلمة</span>
+                            </div>
+                            <input type="range" id="autoFormatWordsSlider" min="20" max="300" step="10" value="80" oninput="updateAutoFormatWords(this.value)" class="w-full h-1.5 accent-indigo-500 cursor-pointer">
+                            
+                            <!-- Preset buttons for quick selection -->
+                            <div class="flex items-center justify-between gap-1 pt-1">
+                                <button onclick="updateAutoFormatWords(40)" class="px-2 py-1 bg-gray-900 hover:bg-gray-800 text-gray-300 rounded text-[10px] font-semibold border border-gray-800 transition">40 كلمة</button>
+                                <button onclick="updateAutoFormatWords(80)" class="px-2 py-1 bg-gray-900 hover:bg-gray-800 text-gray-300 rounded text-[10px] font-semibold border border-gray-800 transition">80 كلمة</button>
+                                <button onclick="updateAutoFormatWords(150)" class="px-2 py-1 bg-gray-900 hover:bg-gray-800 text-gray-300 rounded text-[10px] font-semibold border border-gray-800 transition">150 كلمة</button>
+                                <button onclick="updateAutoFormatWords(250)" class="px-2 py-1 bg-gray-900 hover:bg-gray-800 text-gray-300 rounded text-[10px] font-semibold border border-gray-800 transition">250 كلمة</button>
+                            </div>
+                        </div>
+
+                        <!-- Trigger by pause delay -->
+                        <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-2 mb-3">
+                            <div class="flex items-center justify-between">
+                                <label class="font-bold text-gray-300 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-hourglass-half text-amber-400"></i> مهلة السكوت (توقف الصوت):
+                                </label>
+                                <span id="autoFormatDelayDisplay" class="font-bold text-indigo-300 font-mono text-xs bg-gray-900 px-2 py-0.5 rounded border border-gray-700">10 ثوانٍ</span>
+                            </div>
+                            <input type="range" id="autoFormatDelaySlider" min="3" max="60" step="1" value="10" oninput="updateAutoFormatDelay(this.value)" class="w-full h-1.5 accent-amber-500 cursor-pointer">
+                        </div>
+
+                        <!-- Trigger Immediate Format -->
+                        <button onclick="formatIncremental(); toggleAutoFormatPopover(event);" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> تطبيق التنسيق على النص الجديد فوراً
+                        </button>
+                    </div>
+                </div>
                 
                 <!-- Full Re-format button with Stages Gear Dropdown -->
                 <div class="relative inline-flex items-center shrink-0">
@@ -816,7 +869,7 @@
                     </button>
 
                     <!-- Stages Popover Bubble -->
-                    <div id="stagesPopover" class="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-4 hidden z-50 text-xs text-gray-200 backdrop-blur-md">
+                    <div id="stagesPopover" class="absolute left-0 top-full mt-2 w-80 max-w-[90vw] bg-gray-900/95 border border-amber-700/80 rounded-2xl shadow-2xl p-4 hidden z-50 text-xs text-gray-200 backdrop-blur-xl">
                         <div class="flex items-center justify-between border-b border-gray-800 pb-2 mb-3">
                             <span class="font-bold text-amber-300 flex items-center gap-1.5">
                                 <i class="fa-solid fa-layer-group text-amber-400"></i> مراحل التنسيق التلقائي
@@ -2754,12 +2807,25 @@ function loadConfig() {
         document.documentElement.style.setProperty('--page-font-size', fs + 'px');
         // Auto-format delay
         const afd = (cfg.autoFormatDelay !== undefined) ? cfg.autoFormatDelay : 10;
-        document.getElementById('autoFormatDelayInput').value = afd;
-        document.getElementById('autoFormatDelayLabel').textContent = afd === 0 ? 'معطّل' : afd + 'ث';
+        const afdInp = document.getElementById('autoFormatDelayInput');
+        const afdLbl = document.getElementById('autoFormatDelayLabel');
+        const afdSlider = document.getElementById('autoFormatDelaySlider');
+        const afdDisplay = document.getElementById('autoFormatDelayDisplay');
+        if (afdInp) afdInp.value = afd;
+        if (afdLbl) afdLbl.textContent = afd === 0 ? 'معطّل' : afd + 'ث';
+        if (afdSlider) afdSlider.value = afd;
+        if (afdDisplay) afdDisplay.textContent = afd + ' ثوانٍ';
+
         // Auto-format words
         const afw = (cfg.autoFormatWords !== undefined) ? cfg.autoFormatWords : 80;
-        document.getElementById('autoFormatWordsInput').value = afw;
-        document.getElementById('autoFormatWordsLabel').textContent = afw === 0 ? 'معطّل' : afw + ' ك';
+        const afwInp = document.getElementById('autoFormatWordsInput');
+        const afwLbl = document.getElementById('autoFormatWordsLabel');
+        const afwSlider = document.getElementById('autoFormatWordsSlider');
+        const afwDisplay = document.getElementById('autoFormatWordsDisplay');
+        if (afwInp) afwInp.value = afw;
+        if (afwLbl) afwLbl.textContent = afw === 0 ? 'معطّل' : afw + ' ك';
+        if (afwSlider) afwSlider.value = afw;
+        if (afwDisplay) afwDisplay.textContent = afw + ' كلمة';
 
         // Load stage checkboxes
         ['spelling','punctuation','paragraphing','emphasis','mainHeadings','sideHeadings'].forEach(k => {
@@ -2840,10 +2906,50 @@ async function savePromptOpenAIKey() {
     showToast('تم تفعيل وحفظ مفتاح الذكاء الاصطناعي في الفايربيس لجميع الزوار ✓', 'success', 'fa-check');
 }
 
+// ── Auto-Format Popover & Controls ──
+function toggleAutoFormatPopover(e) {
+    if (e) e.stopPropagation();
+    const pop = document.getElementById('autoFormatPopover');
+    const stagesPop = document.getElementById('stagesPopover');
+    if (stagesPop) stagesPop.classList.add('hidden');
+    if (!pop) return;
+    pop.classList.toggle('hidden');
+}
+
+function updateAutoFormatWords(val) {
+    const w = parseInt(val) || 80;
+    cfg.autoFormatWords = w;
+    const slider = document.getElementById('autoFormatWordsSlider');
+    const display = document.getElementById('autoFormatWordsDisplay');
+    const settingsInp = document.getElementById('autoFormatWordsInput');
+    const settingsLbl = document.getElementById('autoFormatWordsLabel');
+    if (slider) slider.value = w;
+    if (display) display.textContent = w + ' كلمة';
+    if (settingsInp) settingsInp.value = w;
+    if (settingsLbl) settingsLbl.textContent = w + ' ك';
+    localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
+}
+
+function updateAutoFormatDelay(val) {
+    const d = parseInt(val) || 10;
+    cfg.autoFormatDelay = d;
+    const slider = document.getElementById('autoFormatDelaySlider');
+    const display = document.getElementById('autoFormatDelayDisplay');
+    const settingsInp = document.getElementById('autoFormatDelayInput');
+    const settingsLbl = document.getElementById('autoFormatDelayLabel');
+    if (slider) slider.value = d;
+    if (display) display.textContent = d + ' ثوانٍ';
+    if (settingsInp) settingsInp.value = d;
+    if (settingsLbl) settingsLbl.textContent = d + 'ث';
+    localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
+}
+
 // ── Stages Popover & Checkboxes ──
 function toggleStagesPopover(e) {
     if (e) e.stopPropagation();
     const pop = document.getElementById('stagesPopover');
+    const autoPop = document.getElementById('autoFormatPopover');
+    if (autoPop) autoPop.classList.add('hidden');
     if (!pop) return;
     pop.classList.toggle('hidden');
 }
@@ -2869,13 +2975,21 @@ function selectAllStages(val) {
     localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
 }
 
-// Close popover when clicking outside
+// Close popovers when clicking outside
 document.addEventListener('click', (e) => {
-    const pop = document.getElementById('stagesPopover');
-    const btn = document.getElementById('stagesGearBtn');
-    if (pop && !pop.classList.contains('hidden')) {
-        if (!pop.contains(e.target) && (!btn || !btn.contains(e.target))) {
-            pop.classList.add('hidden');
+    const stagesPop = document.getElementById('stagesPopover');
+    const stagesBtn = document.getElementById('stagesGearBtn');
+    if (stagesPop && !stagesPop.classList.contains('hidden')) {
+        if (!stagesPop.contains(e.target) && (!stagesBtn || !stagesBtn.contains(e.target))) {
+            stagesPop.classList.add('hidden');
+        }
+    }
+
+    const autoPop = document.getElementById('autoFormatPopover');
+    const autoBtn = document.getElementById('autoFormatGearBtn');
+    if (autoPop && !autoPop.classList.contains('hidden')) {
+        if (!autoPop.contains(e.target) && (!autoBtn || !autoBtn.contains(e.target))) {
+            autoPop.classList.add('hidden');
         }
     }
 });
