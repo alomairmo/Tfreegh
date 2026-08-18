@@ -800,13 +800,19 @@
         </div>
 
         <!-- Seek Bar & Time Display -->
-        <div class="flex-1 flex flex-col min-w-[120px]">
-            <div class="flex justify-between text-[10px] mb-0.5">
-                <span id="fileNameDisplay" class="font-semibold text-blue-300 truncate max-w-[110px]">الملف...</span>
+        <div class="flex-1 flex flex-col min-w-[140px]">
+            <div class="flex justify-between items-center text-[10px] mb-0.5">
+                <span id="fileNameDisplay" class="font-semibold text-blue-300 truncate max-w-[100px]">الملف...</span>
+                <span id="fileModeBadge" class="hidden text-[9px] px-1.5 py-0.2 rounded font-bold"></span>
                 <span id="fileTimeDisplay" class="font-mono text-gray-400">00:00 / 00:00</span>
             </div>
             <input type="range" id="fileSeekBar" min="0" value="0" step="0.1" oninput="seekFile(this.value)" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
         </div>
+
+        <!-- Retranscribe from here button -->
+        <button id="forceTranscribeBtn" onclick="forceTranscribeFromCurrentPos()" title="تفريغ هذا المقطع مجدداً من موضع التشغيل الحالي" class="px-1.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white flex items-center gap-1 text-[10px] font-bold transition shrink-0">
+            <i class="fa-solid fa-rotate text-amber-400"></i> <span class="hidden md:inline">إعادة التفريغ</span>
+        </button>
 
         <!-- Playback Speed Control -->
         <div class="relative shrink-0 flex items-center">
@@ -2610,6 +2616,17 @@ class ProjectManager {
             }
         }
 
+        maxTranscribedTimeSec = proj.maxTranscribedTimeSec || 0;
+        if (!maxTranscribedTimeSec && (proj.rawHtml || proj.rawText)) {
+            const rawContent = proj.rawHtml || proj.rawText;
+            const matches = rawContent.match(/\[(\d{2}:\d{2}:\d{2})\]/g) || [];
+            matches.forEach(m => {
+                const t = m.replace(/[\[\]]/g, '');
+                maxTranscribedTimeSec = Math.max(maxTranscribedTimeSec, timeStringToSeconds(t) + 10);
+            });
+        }
+        if (typeof updateFileModeBadge === 'function') updateFileModeBadge();
+
         historyManager.resetWithInitialState('فتح المشروع');
 
         if (notify) {
@@ -2656,6 +2673,7 @@ class ProjectManager {
         proj.previewText = preview;
         proj.updatedAt = Date.now();
         proj.clientId = CLIENT_SESSION_ID;
+        proj.maxTranscribedTimeSec = maxTranscribedTimeSec || 0;
 
         // Save last audio playback position
         if (fileAudioEl && !isNaN(fileAudioEl.currentTime)) {
@@ -4066,7 +4084,8 @@ function stopListening() {
 
 // ══════════════════════════════════════════════
 // MIC ENGINE — Web Speech API (free, no key)
-// ══════════════════════════════════════════════
+let micPhraseStartTime = null;
+
 function initMicEngine() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -4083,8 +4102,13 @@ function initMicEngine() {
         for (let i = ev.resultIndex; i < ev.results.length; i++) {
             if (ev.results[i].isFinal) {
                 const p = ev.results[i][0].transcript.trim();
-                if (p) commitPhrase(p);
+                const startSec = (micPhraseStartTime !== null) ? micPhraseStartTime : secondsElapsed;
+                if (p) commitPhrase(p, startSec);
+                micPhraseStartTime = null;
             } else {
+                if (micPhraseStartTime === null) {
+                    micPhraseStartTime = secondsElapsed;
+                }
                 interim += ev.results[i][0].transcript;
             }
         }
@@ -4285,6 +4309,33 @@ function setAudioPlaybackRate(rate) {
     showToast(`تم ضبط سرعة الصوت إلى ${rate}x ⚡`, 'info', 'fa-gauge-high');
 }
 
+let maxTranscribedTimeSec = 0;
+
+function updateFileModeBadge() {
+    const badge = document.getElementById('fileModeBadge');
+    if (!badge || !fileAudioEl || !fileAudioEl.src) return;
+    
+    badge.classList.remove('hidden');
+    const c = fileAudioEl.currentTime || 0;
+    if (c < (maxTranscribedTimeSec - 1)) {
+        badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-950/80 text-amber-300 border border-amber-700/80 flex items-center gap-1';
+        badge.innerHTML = '<i class="fa-solid fa-headphones"></i> استماع ومراجعة (لا يُكرر التفريغ)';
+    } else {
+        badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-blue-950/80 text-blue-300 border border-blue-700/80 flex items-center gap-1';
+        badge.innerHTML = '<i class="fa-solid fa-microphone"></i> تفريغ حي';
+    }
+}
+
+function forceTranscribeFromCurrentPos() {
+    if (!fileAudioEl) return;
+    const c = fileAudioEl.currentTime || 0;
+    maxTranscribedTimeSec = c;
+    const currProj = typeof projectManager !== 'undefined' ? projectManager.currentProject : null;
+    if (currProj) currProj.maxTranscribedTimeSec = maxTranscribedTimeSec;
+    updateFileModeBadge();
+    showToast(`تم ضبط موضع التفريغ ليعمل مجدداً بدءاً من [${fmtTs(Math.floor(c))}] 🔄`, 'info', 'fa-rotate');
+}
+
 function initFileListeners() {
     fileAudioEl = document.getElementById('fileAudioElement');
     const bar = document.getElementById('fileSeekBar');
@@ -4300,12 +4351,14 @@ function initFileListeners() {
         secondsElapsed = Math.floor(c);
         const timerDisplay = document.getElementById('timerDisplay');
         if (timerDisplay) timerDisplay.textContent = fmtTs(secondsElapsed);
+        updateFileModeBadge();
     });
 
     fileAudioEl.addEventListener('pause', () => {
         if (typeof projectManager !== 'undefined') projectManager.scheduleAutoSave();
     });
     fileAudioEl.addEventListener('seeked', () => {
+        updateFileModeBadge();
         if (typeof projectManager !== 'undefined') projectManager.scheduleAutoSave();
     });
     fileAudioEl.addEventListener('ended', () => { 
@@ -4322,9 +4375,14 @@ function startRecorderEngine(stream) {
     displayStream = stream;
     let localRecorder = null;
     let localChunks = [];
+    let cycleStartSec = 0;
 
     function startCycle() {
         if (!isListening || !displayStream) return;
+        
+        // Accurate START timestamp for this chunk
+        cycleStartSec = (fileAudioEl && !isNaN(fileAudioEl.currentTime)) ? Math.max(0, Math.floor(fileAudioEl.currentTime)) : secondsElapsed;
+
         const mime = getSupportedMime();
         try {
             localRecorder = new MediaRecorder(displayStream, mime ? { mimeType: mime } : {});
@@ -4339,7 +4397,12 @@ function startRecorderEngine(stream) {
             if (localChunks.length > 0) {
                 const blob = new Blob(localChunks, { type: localRecorder.mimeType || 'audio/webm' });
                 if (blob.size > 1500) {
-                    transcribeWithWhisper(blob).catch(err => console.warn('Whisper chunk error:', err));
+                    // If audio is playing earlier in review/verification mode, skip re-transcribing it!
+                    if (fileAudioEl && fileAudioEl.src && cycleStartSec < (maxTranscribedTimeSec - 1)) {
+                        console.log(`Review playback at [${fmtTs(cycleStartSec)}], skipping duplicate transcription (max: [${fmtTs(maxTranscribedTimeSec)}])`);
+                        return;
+                    }
+                    transcribeWithWhisper(blob, cycleStartSec).catch(err => console.warn('Whisper chunk error:', err));
                 }
             }
         };
@@ -4394,7 +4457,7 @@ function mimeToExt(mimeType) {
 // ══════════════════════════════════════════════
 // OPENAI WHISPER STT (Decoupled & Non-blocking)
 // ══════════════════════════════════════════════
-async function transcribeWithWhisper(blob) {
+async function transcribeWithWhisper(blob, chunkStartSec = null) {
     if (!cfg.openaiKey) {
         console.log('ملاحظة: تفريغ صوت النظام/الملف يتطلب مفتاح OpenAI.');
         return;
@@ -4422,7 +4485,7 @@ async function transcribeWithWhisper(blob) {
         }
         const text = (await res.text()).trim();
         if (text && text.length > 1) {
-            commitPhrase(text);
+            commitPhrase(text, chunkStartSec);
         }
     } catch(e) {
         console.warn('Whisper network error:', e);
@@ -4430,12 +4493,26 @@ async function transcribeWithWhisper(blob) {
 }
 
 // ══════════════════════════════════════════════
-// TRANSCRIPT — immutable append with timestamp
+// TRANSCRIPT — immutable append with START timestamp
 // ══════════════════════════════════════════════
-function commitPhrase(phrase) {
+function commitPhrase(phrase, startSec = null) {
     phrase = phrase.trim(); if (!phrase) return;
-    const ts = fmtTs(secondsElapsed);
+    
+    // Exact START time of the spoken chunk
+    const finalStartSec = (startSec !== null && !isNaN(startSec)) ? Math.max(0, Math.floor(startSec)) : secondsElapsed;
+    const ts = fmtTs(finalStartSec);
+
+    // Update the maximum transcribed time for file audio
+    const currentAudioTime = (fileAudioEl && !isNaN(fileAudioEl.currentTime)) ? fileAudioEl.currentTime : (finalStartSec + 10);
+    maxTranscribedTimeSec = Math.max(maxTranscribedTimeSec, currentAudioTime);
+
+    const currProj = typeof projectManager !== 'undefined' ? projectManager.currentProject : null;
+    if (currProj) {
+        currProj.maxTranscribedTimeSec = maxTranscribedTimeSec;
+    }
+
     appendToRaw(phrase, ts);
+    updateFileModeBadge();
 }
 
 // ══════════════════════════════════════════════
