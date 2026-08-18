@@ -78,8 +78,9 @@
             caret-color: #818cf8;
             font-family: 'Tajawal', sans-serif;
             transition: font-size 0.15s ease;
+            cursor: text;
         }
-        #rawEditBox:focus { background: rgba(30,41,59,.6); }
+        #rawEditBox:focus { background: transparent; }
         #rawEditBox::before {
             content: attr(data-placeholder);
             color: #4b5563;
@@ -101,13 +102,13 @@
         .transcript-phrase, [data-ts] {
             position: relative;
             border-radius: 4px;
-            padding: 1px 2px;
-            transition: background-color 0.2s ease;
-            cursor: pointer;
+            padding: 0 1px;
+            transition: background-color 0.15s ease;
+            cursor: inherit;
         }
         .transcript-phrase:hover, [data-ts]:hover {
-            background-color: rgba(99, 102, 241, 0.2);
-            outline: 1px dashed rgba(99, 102, 241, 0.5);
+            background-color: rgba(99, 102, 241, 0.08);
+            outline: 1px dashed rgba(99, 102, 241, 0.25);
         }
         .transcript-phrase:hover::after, [data-ts]:hover::after {
             content: "⏱️ " attr(data-ts) " (انقر مرتين للمزامنة مع الكتاب)";
