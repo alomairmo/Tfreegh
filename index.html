@@ -1603,6 +1603,7 @@ const CHUNK_MS = 10000; // 10 seconds per Whisper chunk
 let fileAudioEl = null;
 let fileAudioCtx = null;
 let fileSourceNode = null;
+let maxTranscribedTimeSec = 0;
 
 // Transcript & Pages
 let finalText = '';       // mirror of rawEditBox plain text
@@ -1669,6 +1670,19 @@ function showToast(message, type = 'info', icon = 'fa-info-circle') {
         toast.classList.add('opacity-0', 'translate-y-2');
         setTimeout(() => toast.remove(), 300);
     }, 2800);
+}
+
+// ══════════════════════════════════════════════
+// GLOBAL ESCAPE / SANITIZATION UTILITIES
+// ══════════════════════════════════════════════
+function escHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // ══════════════════════════════════════════════
@@ -2956,53 +2970,57 @@ class ProjectManager {
     }
 
     renderHub() {
-        const gridContainer = document.getElementById('projectsGridContainer');
-        const listContainer = document.getElementById('projectsListContainer');
-        const emptyState = document.getElementById('projectsEmptyState');
-        const countBadge = document.getElementById('hubProjectsCountBadge');
+        try {
+            const gridContainer = document.getElementById('projectsGridContainer');
+            const listContainer = document.getElementById('projectsListContainer');
+            const emptyState = document.getElementById('projectsEmptyState');
+            const countBadge = document.getElementById('hubProjectsCountBadge');
 
-        const filtered = this.getSortedFilteredProjects();
-        if (countBadge) countBadge.textContent = `${this.projects.length} مشاريع`;
+            const filtered = this.getSortedFilteredProjects();
+            if (countBadge) countBadge.textContent = `${this.projects.length} مشاريع`;
 
-        if (filtered.length === 0) {
-            if (gridContainer) gridContainer.classList.add('hidden');
-            if (listContainer) listContainer.classList.add('hidden');
-            if (emptyState) emptyState.classList.remove('hidden');
-            return;
-        }
-
-        if (emptyState) emptyState.classList.add('hidden');
-
-        if (this.viewMode === 'grid') {
-            if (listContainer) listContainer.classList.add('hidden');
-            if (gridContainer) {
-                gridContainer.classList.remove('hidden');
-                gridContainer.innerHTML = filtered.map(p => this.createGridCardHtml(p)).join('');
+            if (filtered.length === 0) {
+                if (gridContainer) gridContainer.classList.add('hidden');
+                if (listContainer) listContainer.classList.add('hidden');
+                if (emptyState) emptyState.classList.remove('hidden');
+                return;
             }
-        } else {
-            if (gridContainer) gridContainer.classList.add('hidden');
-            if (listContainer) {
-                listContainer.classList.remove('hidden');
-                listContainer.innerHTML = `
-                    <div class="bg-gray-950/80 rounded-2xl border border-gray-800/80 overflow-hidden">
-                        <table class="w-full text-right text-xs text-gray-300">
-                            <thead class="bg-gray-900/90 text-gray-400 font-bold border-b border-gray-800 text-[11px]">
-                                <tr>
-                                    <th class="p-3.5 pr-5">المشروع</th>
-                                    <th class="p-3.5">الصفحات</th>
-                                    <th class="p-3.5">الكلمات</th>
-                                    <th class="p-3.5">تاريخ الإنشاء</th>
-                                    <th class="p-3.5">آخر تعديل</th>
-                                    <th class="p-3.5 pl-5 text-center">إجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-800/60">
-                                ${filtered.map(p => this.createListRowHtml(p)).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
+
+            if (emptyState) emptyState.classList.add('hidden');
+
+            if (this.viewMode === 'grid') {
+                if (listContainer) listContainer.classList.add('hidden');
+                if (gridContainer) {
+                    gridContainer.classList.remove('hidden');
+                    gridContainer.innerHTML = filtered.map(p => this.createGridCardHtml(p)).join('');
+                }
+            } else {
+                if (gridContainer) gridContainer.classList.add('hidden');
+                if (listContainer) {
+                    listContainer.classList.remove('hidden');
+                    listContainer.innerHTML = `
+                        <div class="bg-gray-950/80 rounded-2xl border border-gray-800/80 overflow-hidden">
+                            <table class="w-full text-right text-xs text-gray-300">
+                                <thead class="bg-gray-900/90 text-gray-400 font-bold border-b border-gray-800 text-[11px]">
+                                    <tr>
+                                        <th class="p-3.5 pr-5">المشروع</th>
+                                        <th class="p-3.5">الصفحات</th>
+                                        <th class="p-3.5">الكلمات</th>
+                                        <th class="p-3.5">تاريخ الإنشاء</th>
+                                        <th class="p-3.5">آخر تعديل</th>
+                                        <th class="p-3.5 pl-5 text-center">إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-800/60">
+                                    ${filtered.map(p => this.createListRowHtml(p)).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
             }
+        } catch(err) {
+            console.warn('renderHub error:', err);
         }
     }
 
@@ -3116,15 +3134,20 @@ class ProjectManager {
 
     formatDate(ts) {
         if (!ts) return '—';
-        const d = new Date(ts);
-        const now = new Date();
-        const diffSec = Math.floor((now - d) / 1000);
+        try {
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return '—';
+            const now = new Date();
+            const diffSec = Math.floor((now - d) / 1000);
 
-        if (diffSec < 60) return 'الآن';
-        if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;
-        if (diffSec < 86400) return `منذ ${Math.floor(diffSec / 3600)} ساعة`;
-        
-        return d.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric', year: 'numeric' });
+            if (diffSec < 60) return 'الآن';
+            if (diffSec < 3600) return `منذ ${Math.floor(diffSec / 60)} دقيقة`;
+            if (diffSec < 86400) return `منذ ${Math.floor(diffSec / 3600)} ساعة`;
+            
+            return d.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch(e) {
+            return '—';
+        }
     }
 
     updateProjectsCountBadge() {
