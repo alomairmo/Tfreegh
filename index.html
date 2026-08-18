@@ -52,7 +52,14 @@
             50% { height: 16px; }
         }
         .paused-wave .wave-bar { animation:none!important; height:4px!important; opacity:.4; }
-        #interimSpan { color:#818cf8; font-style:italic; }
+        #interimSpan {
+            color: #a5b4fc;
+            font-style: normal;
+            font-size: var(--interim-font-size, 16px);
+            font-weight: 700;
+            line-height: 1.6;
+            transition: font-size 0.15s ease;
+        }
         @keyframes fadeIn { from{opacity:0; transform:translateY(2px)} to{opacity:1; transform:translateY(0)} }
         .phrase-in { animation:fadeIn .3s ease; }
 
@@ -61,8 +68,8 @@
             flex: 1;
             padding: 16px;
             overflow-y: auto;
-            font-size: 13px;
-            line-height: 1.8;
+            font-size: var(--raw-font-size, 14px);
+            line-height: 1.85;
             color: #e2e8f0;
             background: rgba(0,0,0,.25);
             outline: none;
@@ -70,6 +77,7 @@
             word-break: break-word;
             caret-color: #818cf8;
             font-family: 'Tajawal', sans-serif;
+            transition: font-size 0.15s ease;
         }
         #rawEditBox:focus { background: rgba(30,41,59,.6); }
         #rawEditBox::before {
@@ -705,6 +713,19 @@
         <span class="font-mono text-indigo-300 whitespace-nowrap"><i class="fa-regular fa-clock ml-1"></i><span id="timerDisplay">00:00:00</span></span>
     </div>
 
+    <!-- Segmented Layout Switcher -->
+    <div class="flex items-center bg-gray-900 border border-gray-700/80 rounded-xl p-0.5 shadow-inner shrink-0 text-[11px] font-bold">
+        <button id="layoutBtn_raw" onclick="setLayoutMode('raw-only')" title="عرض قسم التفريغ الحرفي فقط بكامل الشاشة" class="px-2 sm:px-2.5 py-1 rounded-lg text-gray-400 hover:text-white flex items-center gap-1 transition">
+            <i class="fa-solid fa-microphone-lines text-indigo-400"></i> <span class="hidden md:inline">تفريغ فقط</span>
+        </button>
+        <button id="layoutBtn_split" onclick="setLayoutMode('split')" title="العرض المزدوج المشترك (تفريغ + كتاب)" class="px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center gap-1 transition">
+            <i class="fa-solid fa-table-columns text-amber-300"></i> <span class="hidden md:inline">عرض مزدوج</span>
+        </button>
+        <button id="layoutBtn_book" onclick="setLayoutMode('book-only')" title="عرض قسم الكتاب المنسق فقط بكامل الشاشة" class="px-2 sm:px-2.5 py-1 rounded-lg text-gray-400 hover:text-white flex items-center gap-1 transition">
+            <i class="fa-solid fa-book-open text-emerald-400"></i> <span class="hidden md:inline">كتاب فقط</span>
+        </button>
+    </div>
+
     <!-- File Player -->
     <div id="filePlayerBar" class="hidden flex-1 max-w-md bg-gray-900 border border-blue-900/60 px-3 py-1 rounded-xl flex items-center gap-3">
         <audio id="fileAudioElement" class="hidden"></audio>
@@ -747,18 +768,35 @@
 
     <!-- 25% RIGHT: raw transcript (EDITABLE) -->
     <section id="rawPanelSection" class="w-full lg:w-1/4 border-l border-gray-800/80 flex flex-col glass-panel mobile-hidden-tab lg:flex" style="user-select:text">
-        <div class="p-3 border-b border-gray-800/80 flex items-center justify-between bg-gray-900/60 shrink-0">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-microphone-lines text-indigo-400"></i>
-                <div>
-                    <p class="text-xs font-bold text-gray-200">التفريغ الحرفي المباشر</p>
-                    <p class="text-[10px] text-gray-400">قابل للتعديل · قابل للصق</p>
+        <div class="p-2.5 sm:p-3 border-b border-gray-800/80 flex items-center justify-between bg-gray-900/60 shrink-0 gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+                <i class="fa-solid fa-microphone-lines text-indigo-400 shrink-0"></i>
+                <div class="min-w-0">
+                    <p class="text-xs font-bold text-gray-200 truncate">التفريغ الحرفي المباشر</p>
+                    <p class="text-[10px] text-gray-400 truncate">قابل للتعديل واللصق</p>
                 </div>
             </div>
-            <button onclick="pasteIntoRaw()" title="لصق" class="text-gray-500 hover:text-indigo-300 px-2 py-1 rounded-lg border border-gray-700 hover:border-indigo-600 text-[10px] flex items-center gap-1 transition">
-                <i class="fa-solid fa-paste"></i> لصق
-            </button>
+            
+            <div class="flex items-center gap-1.5 shrink-0">
+                <!-- Raw text font size zoom control -->
+                <div class="flex items-center gap-1 bg-gray-950 border border-gray-700/80 rounded-lg px-2 py-1 text-xs" title="حجم خط النص المفرغ">
+                    <i class="fa-solid fa-text-height text-gray-400 text-[10px]"></i>
+                    <input type="range" id="rawFontSizeSlider" min="12" max="32" value="14" step="1" oninput="changeRawFontSize(this.value)" class="w-12 sm:w-14 h-1 accent-indigo-500 cursor-pointer">
+                    <span id="rawFontSizeLabel" class="text-indigo-300 font-bold text-[10px] w-4 text-center">14</span>
+                </div>
+
+                <button onclick="pasteIntoRaw()" title="لصق نص من الحافظة" class="text-gray-400 hover:text-indigo-300 px-2 py-1 rounded-lg border border-gray-700 hover:border-indigo-600 text-[11px] flex items-center gap-1 transition">
+                    <i class="fa-solid fa-paste"></i> <span class="hidden sm:inline">لصق</span>
+                </button>
+
+                <!-- Fullscreen Raw Button -->
+                <button onclick="toggleRawFullscreen()" id="rawFullscreenBtn" title="ملء الشاشة عرضاً بقسم التفريغ فقط وإخفاء التنسيق" class="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-2 py-1 rounded-lg border border-gray-700 text-[11px] font-bold flex items-center gap-1 transition">
+                    <i id="rawFullscreenIcon" class="fa-solid fa-expand text-indigo-400"></i>
+                    <span id="rawFullscreenText" class="hidden xs:inline">ملء الشاشة</span>
+                </button>
+            </div>
         </div>
+
         <!-- contenteditable div: the user can type/paste directly -->
         <div id="rawEditBox"
             contenteditable="true"
@@ -767,7 +805,27 @@
             oninput="onRawInput()"
             class="flex-1 overflow-y-auto relative">
         </div>
-        <span id="interimSpan" class="px-4 py-1 text-xs italic text-indigo-400 border-t border-gray-800/40 shrink-0 min-h-[1.5rem]"></span>
+
+        <!-- Live Incoming Speech Box (Before Committing) with Scalable Font Size -->
+        <div id="interimContainer" class="p-2.5 border-t border-gray-800 bg-gray-950/95 flex flex-col gap-1.5 shrink-0 transition-all">
+            <div class="flex items-center justify-between text-[11px]">
+                <span class="font-bold text-indigo-300 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                    <i class="fa-solid fa-microphone-lines text-indigo-400"></i> الكلام المباشر أثناء التحدث:
+                </span>
+                <!-- Interim Speech Font Size Controls -->
+                <div class="flex items-center gap-1 bg-gray-900 border border-gray-700/80 rounded-lg px-2 py-0.5 text-xs">
+                    <span class="text-[10px] text-gray-400 ml-1">حجم الخط:</span>
+                    <button onclick="changeInterimFontSize(-2)" title="تصغير خط الكلام المباشر" class="w-5 h-5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center transition">A-</button>
+                    <span id="interimFontSizeLabel" class="text-indigo-300 font-mono text-[10px] font-bold px-1 w-6 text-center">16</span>
+                    <button onclick="changeInterimFontSize(2)" title="تكبير خط الكلام المباشر" class="w-5 h-5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center transition">A+</button>
+                </div>
+            </div>
+            <div class="p-2 rounded-lg bg-indigo-950/40 border border-indigo-800/40 min-h-[2.4rem] flex items-center">
+                <span id="interimSpan" class="text-indigo-200 font-bold block w-full transition-all"></span>
+            </div>
+        </div>
+
         <div class="p-2.5 border-t border-gray-800 bg-gray-900/40 text-[10px] text-gray-500 flex justify-between items-center shrink-0">
             <span id="rawWordCountLabel">0 كلمة</span>
             <button onclick="copyRaw()" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-bold"><i class="fa-regular fa-copy"></i> نسخ</button>
@@ -792,6 +850,11 @@
                 <!-- Auto-scroll Toggle -->
                 <button id="autoScrollBtn" onclick="toggleAutoScroll()" class="bg-emerald-950/80 border border-emerald-700 text-emerald-300 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shrink-0">
                     <i class="fa-solid fa-angles-down text-emerald-400"></i> <span class="hidden sm:inline">التمرير:</span> مفعل
+                </button>
+
+                <!-- Fullscreen Book Button -->
+                <button onclick="toggleBookFullscreen()" id="bookFullscreenBtn" title="ملء الشاشة عرضاً بقسم التنسيق فقط وإخفاء التفريغ" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0">
+                    <i id="bookFullscreenIcon" class="fa-solid fa-expand text-amber-400"></i> <span id="bookFullscreenText" class="hidden sm:inline">ملء الشاشة</span>
                 </button>
 
                 <!-- Font size control -->
@@ -2801,10 +2864,31 @@ function loadConfig() {
         if (document.getElementById('formatterEngineSelect')) {
             document.getElementById('formatterEngineSelect').value = cfg.formatterEngine || 'auto';
         }
+        // Book Page font size
         const fs = cfg.fontSize || 16;
         document.getElementById('fontSizeSlider').value = fs;
         document.getElementById('fontSizeLabel').textContent = fs;
         document.documentElement.style.setProperty('--page-font-size', fs + 'px');
+
+        // Raw text font size
+        const rfs = cfg.rawFontSize || 14;
+        const rfsSlider = document.getElementById('rawFontSizeSlider');
+        const rfsLabel = document.getElementById('rawFontSizeLabel');
+        if (rfsSlider) rfsSlider.value = rfs;
+        if (rfsLabel) rfsLabel.textContent = rfs;
+        document.documentElement.style.setProperty('--raw-font-size', rfs + 'px');
+
+        // Live interim speech font size
+        const ifs = cfg.interimFontSize || 16;
+        const ifsLabel = document.getElementById('interimFontSizeLabel');
+        if (ifsLabel) ifsLabel.textContent = ifs;
+        document.documentElement.style.setProperty('--interim-font-size', ifs + 'px');
+
+        // Layout Mode
+        const savedLayout = localStorage.getItem('transcriber_layout_mode') || 'split';
+        currentLayoutMode = savedLayout;
+        applyLayoutModeUI();
+
         // Auto-format delay
         const afd = (cfg.autoFormatDelay !== undefined) ? cfg.autoFormatDelay : 10;
         const afdInp = document.getElementById('autoFormatDelayInput');
@@ -2840,6 +2924,127 @@ function changeFontSize(v) {
     document.getElementById('fontSizeLabel').textContent = fs;
     document.documentElement.style.setProperty('--page-font-size', fs + 'px');
     cfg.fontSize = fs;
+    localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
+}
+
+// ── FONT SIZES FOR RAW & INTERIM SPEECH ──
+function changeRawFontSize(v) {
+    const fs = Math.max(12, Math.min(36, parseInt(v) || 14));
+    cfg.rawFontSize = fs;
+    document.documentElement.style.setProperty('--raw-font-size', fs + 'px');
+    const slider = document.getElementById('rawFontSizeSlider');
+    const label = document.getElementById('rawFontSizeLabel');
+    if (slider) slider.value = fs;
+    if (label) label.textContent = fs;
+    localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
+}
+
+function changeInterimFontSize(delta) {
+    let fs = (cfg.interimFontSize || 16) + delta;
+    fs = Math.max(12, Math.min(48, fs));
+    cfg.interimFontSize = fs;
+    document.documentElement.style.setProperty('--interim-font-size', fs + 'px');
+    const label = document.getElementById('interimFontSizeLabel');
+    if (label) label.textContent = fs;
+    localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
+}
+
+// ══════════════════════════════════════════════
+// LAYOUT MODES & FULLSCREEN TOGGLE
+// ══════════════════════════════════════════════
+let currentLayoutMode = 'split'; // 'split' | 'raw-only' | 'book-only'
+
+function setLayoutMode(mode) {
+    currentLayoutMode = mode;
+    localStorage.setItem('transcriber_layout_mode', mode);
+    applyLayoutModeUI();
+}
+
+function toggleRawFullscreen() {
+    setLayoutMode(currentLayoutMode === 'raw-only' ? 'split' : 'raw-only');
+}
+
+function toggleBookFullscreen() {
+    setLayoutMode(currentLayoutMode === 'book-only' ? 'split' : 'book-only');
+}
+
+function applyLayoutModeUI() {
+    const rawSec = document.getElementById('rawPanelSection');
+    const bookSec = document.getElementById('bookPanelSection');
+    
+    const rawBtn = document.getElementById('rawFullscreenBtn');
+    const rawIcon = document.getElementById('rawFullscreenIcon');
+    const rawText = document.getElementById('rawFullscreenText');
+    
+    const bookBtn = document.getElementById('bookFullscreenBtn');
+    const bookIcon = document.getElementById('bookFullscreenIcon');
+    const bookText = document.getElementById('bookFullscreenText');
+
+    const layoutRawBtn = document.getElementById('layoutBtn_raw');
+    const layoutSplitBtn = document.getElementById('layoutBtn_split');
+    const layoutBookBtn = document.getElementById('layoutBtn_book');
+
+    // Reset layout toggle button states
+    [layoutRawBtn, layoutSplitBtn, layoutBookBtn].forEach(b => {
+        if (b) {
+            b.className = 'px-2 sm:px-2.5 py-1 rounded-lg text-gray-400 hover:text-white flex items-center gap-1 transition';
+        }
+    });
+
+    if (currentLayoutMode === 'raw-only') {
+        if (rawSec) {
+            rawSec.classList.remove('lg:w-1/4', 'hidden', 'mobile-hidden-tab');
+            rawSec.classList.add('w-full', 'flex');
+        }
+        if (bookSec) {
+            bookSec.classList.remove('w-full', 'lg:w-3/4', 'flex', 'mobile-active-tab');
+            bookSec.classList.add('hidden');
+        }
+        if (rawIcon) rawIcon.className = 'fa-solid fa-compress text-indigo-400';
+        if (rawText) rawText.textContent = 'استعادة';
+        if (rawBtn) rawBtn.title = 'استعادة العرض المزدوج المشترك';
+
+        if (layoutRawBtn) {
+            layoutRawBtn.className = 'px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center gap-1 transition';
+        }
+    } else if (currentLayoutMode === 'book-only') {
+        if (rawSec) {
+            rawSec.classList.remove('w-full', 'lg:w-1/4', 'flex', 'mobile-active-tab');
+            rawSec.classList.add('hidden', 'mobile-hidden-tab');
+        }
+        if (bookSec) {
+            bookSec.classList.remove('lg:w-3/4', 'hidden');
+            bookSec.classList.add('w-full', 'flex', 'mobile-active-tab');
+        }
+        if (bookIcon) bookIcon.className = 'fa-solid fa-compress text-amber-400';
+        if (bookText) bookText.textContent = 'استعادة';
+        if (bookBtn) bookBtn.title = 'استعادة العرض المزدوج المشترك';
+
+        if (layoutBookBtn) {
+            layoutBookBtn.className = 'px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center gap-1 transition';
+        }
+    } else {
+        // 'split' mode
+        if (rawSec) {
+            rawSec.classList.remove('w-full', 'hidden');
+            rawSec.classList.add('w-full', 'lg:w-1/4', 'mobile-hidden-tab', 'lg:flex');
+        }
+        if (bookSec) {
+            bookSec.classList.remove('w-full', 'hidden');
+            bookSec.classList.add('w-full', 'lg:w-3/4', 'mobile-active-tab', 'lg:flex');
+        }
+        if (rawIcon) rawIcon.className = 'fa-solid fa-expand text-indigo-400';
+        if (rawText) rawText.textContent = 'ملء الشاشة';
+        if (rawBtn) rawBtn.title = 'تكبير قسم التفريغ لملء كامل الشاشة عرضاً';
+
+        if (bookIcon) bookIcon.className = 'fa-solid fa-expand text-amber-400';
+        if (bookText) bookText.textContent = 'ملء الشاشة';
+        if (bookBtn) bookBtn.title = 'تكبير عرض الكتاب لملء كامل الشاشة عرضاً وإخفاء التفريغ';
+
+        if (layoutSplitBtn) {
+            layoutSplitBtn.className = 'px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center gap-1 transition';
+        }
+    }
 }
 
 function saveSettings() {
