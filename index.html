@@ -87,6 +87,60 @@
             pointer-events: none;
         }
 
+        /* ── TIMESTAMPS IN RAW TRANSCRIPT & BOOK VIEW ── */
+        .ts-tag {
+            display: inline-block;
+            font-size: 0;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            overflow: hidden;
+            pointer-events: none;
+            user-select: none;
+        }
+        .transcript-phrase, [data-ts] {
+            position: relative;
+            border-radius: 4px;
+            padding: 1px 2px;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+        }
+        .transcript-phrase:hover, [data-ts]:hover {
+            background-color: rgba(99, 102, 241, 0.2);
+            outline: 1px dashed rgba(99, 102, 241, 0.5);
+        }
+        .transcript-phrase:hover::after, [data-ts]:hover::after {
+            content: "⏱️ " attr(data-ts) " (انقر مرتين للمزامنة مع الكتاب)";
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            transform: translateY(-4px);
+            background: #1e1b4b;
+            color: #c7d2fe;
+            border: 1px solid #6366f1;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+            z-index: 100;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+        }
+        /* In Book section, custom tooltip */
+        .section-body [data-ts]:hover::after, .page-section [data-ts]:hover::after {
+            content: "⏱️ " attr(data-ts) " (انقر مرتين للانتقال إلى النص المفرغ)";
+        }
+        @keyframes syncPulse {
+            0% { background-color: rgba(234, 179, 8, 0.85); outline: 3px solid #eab308; box-shadow: 0 0 15px rgba(234, 179, 8, 0.6); }
+            50% { background-color: rgba(99, 102, 241, 0.6); outline: 3px solid #6366f1; }
+            100% { background-color: transparent; outline: none; box-shadow: none; }
+        }
+        .sync-pulse-highlight {
+            animation: syncPulse 2s ease-out forwards;
+            border-radius: 4px;
+        }
+
         /* ── PDF BOOK STYLES ── */
         .book-area {
             background: #1e2235;
@@ -778,11 +832,12 @@
             </div>
             
             <div class="flex items-center gap-1.5 shrink-0">
-                <!-- Raw text font size zoom control -->
-                <div class="flex items-center gap-1 bg-gray-950 border border-gray-700/80 rounded-lg px-2 py-1 text-xs" title="حجم خط النص المفرغ">
-                    <i class="fa-solid fa-text-height text-gray-400 text-[10px]"></i>
-                    <input type="range" id="rawFontSizeSlider" min="12" max="32" value="14" step="1" oninput="changeRawFontSize(this.value)" class="w-12 sm:w-14 h-1 accent-indigo-500 cursor-pointer">
-                    <span id="rawFontSizeLabel" class="text-indigo-300 font-bold text-[10px] w-4 text-center">14</span>
+                <!-- Raw text font size zoom controls (A- / A+) -->
+                <div class="flex items-center gap-1 bg-gray-950 border border-gray-700/80 rounded-lg px-2 py-0.5 text-xs">
+                    <span class="text-[10px] text-gray-400 ml-0.5">حجم الخط:</span>
+                    <button onclick="changeRawFontSize(-2, true)" title="تصغير خط النص المفرغ" class="w-5 h-5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center transition">A-</button>
+                    <span id="rawFontSizeLabel" class="text-indigo-300 font-mono text-[10px] font-bold px-1 w-6 text-center">14</span>
+                    <button onclick="changeRawFontSize(2, true)" title="تكبير خط النص المفرغ" class="w-5 h-5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center transition">A+</button>
                 </div>
 
                 <button onclick="pasteIntoRaw()" title="لصق نص من الحافظة" class="text-gray-400 hover:text-indigo-300 px-2 py-1 rounded-lg border border-gray-700 hover:border-indigo-600 text-[11px] flex items-center gap-1 transition">
@@ -806,9 +861,14 @@
             class="flex-1 overflow-y-auto relative">
         </div>
 
+        <!-- Vertical Resizer Handle between Raw Edit Box and Interim Speech Box -->
+        <div id="interimResizer" title="اسحب لأعلى أو لأسفل لتغيير ارتفاع مربع الكلام المباشر" class="h-2 bg-gray-900/90 hover:bg-indigo-600 active:bg-indigo-500 cursor-row-resize flex items-center justify-center transition-colors select-none z-20 group border-t border-b border-gray-800 shrink-0">
+            <div class="w-8 h-1 rounded-full bg-gray-600 group-hover:bg-indigo-200 transition-colors"></div>
+        </div>
+
         <!-- Live Incoming Speech Box (Before Committing) with Scalable Font Size -->
-        <div id="interimContainer" class="p-2.5 border-t border-gray-800 bg-gray-950/95 flex flex-col gap-1.5 shrink-0 transition-all">
-            <div class="flex items-center justify-between text-[11px]">
+        <div id="interimContainer" class="p-2.5 bg-gray-950/95 flex flex-col gap-1.5 shrink-0 overflow-y-auto" style="min-height: 5rem; max-height: 50vh;">
+            <div class="flex items-center justify-between text-[11px] shrink-0">
                 <span class="font-bold text-indigo-300 flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
                     <i class="fa-solid fa-microphone-lines text-indigo-400"></i> الكلام المباشر أثناء التحدث:
@@ -821,19 +881,31 @@
                     <button onclick="changeInterimFontSize(2)" title="تكبير خط الكلام المباشر" class="w-5 h-5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold flex items-center justify-center transition">A+</button>
                 </div>
             </div>
-            <div class="p-2 rounded-lg bg-indigo-950/40 border border-indigo-800/40 min-h-[2.4rem] flex items-center">
+            <div class="p-2 rounded-lg bg-indigo-950/40 border border-indigo-800/40 min-h-[2.4rem] flex items-center flex-1">
                 <span id="interimSpan" class="text-indigo-200 font-bold block w-full transition-all"></span>
             </div>
         </div>
 
-        <div class="p-2.5 border-t border-gray-800 bg-gray-900/40 text-[10px] text-gray-500 flex justify-between items-center shrink-0">
-            <span id="rawWordCountLabel">0 كلمة</span>
-            <button onclick="copyRaw()" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-bold"><i class="fa-regular fa-copy"></i> نسخ</button>
+        <div class="p-2 sm:p-2.5 border-t border-gray-800 bg-gray-900/60 text-[11px] text-gray-400 flex justify-between items-center shrink-0 flex-wrap gap-2">
+            <span id="rawWordCountLabel" class="font-bold text-gray-300">0 كلمة</span>
+            <div class="flex items-center gap-1.5">
+                <button onclick="copyRawWithTimestamps()" title="نسخ النص كاملاً متضمناً أختام التوقيت [00:00:00]" class="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/80 text-indigo-200 rounded-lg font-bold flex items-center gap-1 transition text-[10px] shadow-sm">
+                    <i class="fa-solid fa-clock text-indigo-400"></i> نسخ بالتوقيت
+                </button>
+                <button onclick="copyRawClean()" title="نسخ النص الصافي بدون أي توقيتات" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg font-bold flex items-center gap-1 transition text-[10px] shadow-sm">
+                    <i class="fa-regular fa-copy text-gray-400"></i> نسخ بدون توقيت
+                </button>
+            </div>
         </div>
     </section>
 
+    <!-- Horizontal Resizer Handle between Raw Panel and Book Panel -->
+    <div id="panelsResizer" title="اسحب يميناً أو يساراً لتغيير عرض قسم التفريغ وقسم الكتاب" class="hidden lg:flex w-2 bg-gray-900/90 hover:bg-indigo-600 active:bg-indigo-500 cursor-col-resize items-center justify-center transition-colors select-none z-20 group border-r border-l border-gray-800 shrink-0">
+        <div class="h-8 w-1 rounded-full bg-gray-600 group-hover:bg-indigo-200 transition-colors"></div>
+    </div>
+
     <!-- 75% LEFT: PDF Book View -->
-    <section id="bookPanelSection" class="w-full lg:w-3/4 flex flex-col overflow-hidden mobile-active-tab lg:flex">
+    <section id="bookPanelSection" class="w-full lg:w-3/4 flex-1 flex flex-col overflow-hidden mobile-active-tab lg:flex">
         <div class="p-2.5 sm:p-3 border-b border-gray-800 bg-gray-900/80 shrink-0 flex items-center justify-between gap-2 sm:gap-3 overflow-visible relative z-30 flex-wrap">
             <div class="flex items-center gap-2 shrink-0">
                 <i class="fa-solid fa-book text-amber-400"></i>
@@ -2879,6 +2951,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     initMicEngine();
     initFileListeners();
+    initResizers();
     firebaseService.init();
     projectManager.init();
 });
@@ -2971,20 +3044,24 @@ function changeFontSize(v) {
 }
 
 // ── FONT SIZES FOR RAW & INTERIM SPEECH ──
-function changeRawFontSize(v) {
-    const fs = Math.max(12, Math.min(36, parseInt(v) || 14));
+function changeRawFontSize(deltaOrVal, isDelta = false) {
+    let fs = 14;
+    if (isDelta) {
+        fs = (cfg.rawFontSize || 14) + deltaOrVal;
+    } else {
+        fs = parseInt(deltaOrVal) || 14;
+    }
+    fs = Math.max(10, Math.min(200, fs));
     cfg.rawFontSize = fs;
     document.documentElement.style.setProperty('--raw-font-size', fs + 'px');
-    const slider = document.getElementById('rawFontSizeSlider');
     const label = document.getElementById('rawFontSizeLabel');
-    if (slider) slider.value = fs;
     if (label) label.textContent = fs;
     localStorage.setItem('transcriber_openai_cfg', JSON.stringify(cfg));
 }
 
 function changeInterimFontSize(delta) {
     let fs = (cfg.interimFontSize || 16) + delta;
-    fs = Math.max(12, Math.min(48, fs));
+    fs = Math.max(10, Math.min(200, fs));
     cfg.interimFontSize = fs;
     document.documentElement.style.setProperty('--interim-font-size', fs + 'px');
     const label = document.getElementById('interimFontSizeLabel');
@@ -3014,6 +3091,7 @@ function toggleBookFullscreen() {
 function applyLayoutModeUI() {
     const rawSec = document.getElementById('rawPanelSection');
     const bookSec = document.getElementById('bookPanelSection');
+    const panelsResizer = document.getElementById('panelsResizer');
     
     const rawBtn = document.getElementById('rawFullscreenBtn');
     const rawIcon = document.getElementById('rawFullscreenIcon');
@@ -3036,12 +3114,14 @@ function applyLayoutModeUI() {
 
     if (currentLayoutMode === 'raw-only') {
         if (rawSec) {
-            rawSec.classList.remove('lg:w-1/4', 'hidden', 'mobile-hidden-tab');
-            rawSec.classList.add('w-full', 'flex');
+            rawSec.style.display = 'flex';
+            rawSec.style.width = '100%';
+            rawSec.className = 'w-full flex flex-col glass-panel';
         }
+        if (panelsResizer) panelsResizer.style.display = 'none';
         if (bookSec) {
-            bookSec.classList.remove('w-full', 'lg:w-3/4', 'flex', 'mobile-active-tab');
-            bookSec.classList.add('hidden');
+            bookSec.style.display = 'none';
+            bookSec.className = 'hidden';
         }
         if (rawIcon) rawIcon.className = 'fa-solid fa-compress text-indigo-400';
         if (rawText) rawText.textContent = 'استعادة';
@@ -3052,12 +3132,14 @@ function applyLayoutModeUI() {
         }
     } else if (currentLayoutMode === 'book-only') {
         if (rawSec) {
-            rawSec.classList.remove('w-full', 'lg:w-1/4', 'flex', 'mobile-active-tab');
-            rawSec.classList.add('hidden', 'mobile-hidden-tab');
+            rawSec.style.display = 'none';
+            rawSec.className = 'hidden';
         }
+        if (panelsResizer) panelsResizer.style.display = 'none';
         if (bookSec) {
-            bookSec.classList.remove('lg:w-3/4', 'hidden');
-            bookSec.classList.add('w-full', 'flex', 'mobile-active-tab');
+            bookSec.style.display = 'flex';
+            bookSec.style.width = '100%';
+            bookSec.className = 'w-full flex flex-col overflow-hidden';
         }
         if (bookIcon) bookIcon.className = 'fa-solid fa-compress text-amber-400';
         if (bookText) bookText.textContent = 'استعادة';
@@ -3067,14 +3149,24 @@ function applyLayoutModeUI() {
             layoutBookBtn.className = 'px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center gap-1 transition';
         }
     } else {
-        // 'split' mode
+        // 'split' mode (default 25% / 75% on desktop, resizable)
+        const savedWidth = localStorage.getItem('transcriber_raw_panel_width');
         if (rawSec) {
-            rawSec.classList.remove('w-full', 'hidden');
-            rawSec.classList.add('w-full', 'lg:w-1/4', 'mobile-hidden-tab', 'lg:flex');
+            rawSec.style.display = '';
+            if (savedWidth && window.innerWidth >= 1024) {
+                rawSec.style.width = savedWidth + 'px';
+            } else {
+                rawSec.style.width = '';
+            }
+            rawSec.className = 'w-full lg:w-1/4 border-l border-gray-800/80 flex flex-col glass-panel mobile-hidden-tab lg:flex';
+        }
+        if (panelsResizer) {
+            panelsResizer.style.display = '';
         }
         if (bookSec) {
-            bookSec.classList.remove('w-full', 'hidden');
-            bookSec.classList.add('w-full', 'lg:w-3/4', 'mobile-active-tab', 'lg:flex');
+            bookSec.style.display = '';
+            bookSec.style.width = '';
+            bookSec.className = 'w-full lg:w-3/4 flex-1 flex flex-col overflow-hidden mobile-active-tab lg:flex';
         }
         if (rawIcon) rawIcon.className = 'fa-solid fa-expand text-indigo-400';
         if (rawText) rawText.textContent = 'ملء الشاشة';
@@ -3087,6 +3179,144 @@ function applyLayoutModeUI() {
         if (layoutSplitBtn) {
             layoutSplitBtn.className = 'px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-sm flex items-center gap-1 transition';
         }
+    }
+}
+
+// ══════════════════════════════════════════════
+// RESIZABLE SPLITTERS (DRAGGABLE DIVIDERS)
+// ══════════════════════════════════════════════
+function initResizers() {
+    // 1. Vertical Resizer: between rawEditBox and interimContainer
+    const interimResizer = document.getElementById('interimResizer');
+    const interimContainer = document.getElementById('interimContainer');
+    const rawPanel = document.getElementById('rawPanelSection');
+
+    if (interimResizer && interimContainer) {
+        const savedHeight = localStorage.getItem('transcriber_interim_height');
+        if (savedHeight) {
+            interimContainer.style.height = savedHeight + 'px';
+        }
+
+        let isDraggingV = false;
+        let startY = 0;
+        let startH = 0;
+
+        const onPointerDownV = (e) => {
+            isDraggingV = true;
+            startY = e.clientY || (e.touches && e.touches[0].clientY);
+            startH = interimContainer.offsetHeight;
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'row-resize';
+            interimResizer.classList.add('bg-indigo-600');
+            window.addEventListener('pointermove', onPointerMoveV);
+            window.addEventListener('pointerup', onPointerUpV);
+            window.addEventListener('touchmove', onTouchMoveV, { passive: false });
+            window.addEventListener('touchend', onTouchEndV);
+        };
+
+        const onPointerMoveV = (e) => {
+            if (!isDraggingV) return;
+            const currentY = e.clientY;
+            const deltaY = startY - currentY; // dragging up increases interim box height
+            const maxH = (rawPanel ? rawPanel.offsetHeight * 0.75 : 450);
+            const newH = Math.max(65, Math.min(maxH, startH + deltaY));
+            interimContainer.style.height = newH + 'px';
+        };
+
+        const onTouchMoveV = (e) => {
+            if (!isDraggingV || !e.touches || !e.touches[0]) return;
+            e.preventDefault();
+            const currentY = e.touches[0].clientY;
+            const deltaY = startY - currentY;
+            const maxH = (rawPanel ? rawPanel.offsetHeight * 0.75 : 450);
+            const newH = Math.max(65, Math.min(maxH, startH + deltaY));
+            interimContainer.style.height = newH + 'px';
+        };
+
+        const onPointerUpV = () => {
+            if (!isDraggingV) return;
+            isDraggingV = false;
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+            interimResizer.classList.remove('bg-indigo-600');
+            localStorage.setItem('transcriber_interim_height', interimContainer.offsetHeight);
+            window.removeEventListener('pointermove', onPointerMoveV);
+            window.removeEventListener('pointerup', onPointerUpV);
+            window.removeEventListener('touchmove', onTouchMoveV);
+            window.removeEventListener('touchend', onTouchEndV);
+        };
+
+        const onTouchEndV = () => onPointerUpV();
+
+        interimResizer.addEventListener('pointerdown', onPointerDownV);
+    }
+
+    // 2. Horizontal Resizer: between rawPanelSection and bookPanelSection
+    const panelsResizer = document.getElementById('panelsResizer');
+    const rawSec = document.getElementById('rawPanelSection');
+    const bookSec = document.getElementById('bookPanelSection');
+    const mainContainer = document.querySelector('main');
+
+    if (panelsResizer && rawSec && mainContainer) {
+        let isDraggingH = false;
+        let startX = 0;
+        let startW = 0;
+
+        const onPointerDownH = (e) => {
+            if (currentLayoutMode !== 'split') return;
+            isDraggingH = true;
+            startX = e.clientX || (e.touches && e.touches[0].clientX);
+            startW = rawSec.offsetWidth;
+            document.body.style.userSelect = 'none';
+            document.body.style.cursor = 'col-resize';
+            panelsResizer.classList.add('bg-indigo-600');
+            window.addEventListener('pointermove', onPointerMoveH);
+            window.addEventListener('pointerup', onPointerUpH);
+            window.addEventListener('touchmove', onTouchMoveH, { passive: false });
+            window.addEventListener('touchend', onTouchEndH);
+        };
+
+        const onPointerMoveH = (e) => {
+            if (!isDraggingH) return;
+            const currentX = e.clientX;
+            // In RTL layout (Arabic): raw panel is on the right side.
+            // Dragging left (smaller clientX) increases width of raw panel!
+            const deltaX = startX - currentX;
+            const totalW = mainContainer.offsetWidth;
+            const minW = Math.max(220, totalW * 0.15);
+            const maxW = Math.min(totalW * 0.80, totalW - 300);
+            const newW = Math.max(minW, Math.min(maxW, startW + deltaX));
+            rawSec.style.width = newW + 'px';
+        };
+
+        const onTouchMoveH = (e) => {
+            if (!isDraggingH || !e.touches || !e.touches[0]) return;
+            e.preventDefault();
+            const currentX = e.touches[0].clientX;
+            const deltaX = startX - currentX;
+            const totalW = mainContainer.offsetWidth;
+            const minW = Math.max(220, totalW * 0.15);
+            const maxW = Math.min(totalW * 0.80, totalW - 300);
+            const newW = Math.max(minW, Math.min(maxW, startW + deltaX));
+            rawSec.style.width = newW + 'px';
+        };
+
+        const onPointerUpH = () => {
+            if (!isDraggingH) return;
+            isDraggingH = false;
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+            panelsResizer.classList.remove('bg-indigo-600');
+            localStorage.setItem('transcriber_raw_panel_width', rawSec.offsetWidth);
+            window.removeEventListener('pointermove', onPointerMoveH);
+            window.removeEventListener('pointerup', onPointerUpH);
+            window.removeEventListener('touchmove', onTouchMoveH);
+            window.removeEventListener('touchend', onTouchEndH);
+        };
+
+        const onTouchEndH = () => onPointerUpH();
+
+        panelsResizer.addEventListener('pointerdown', onPointerDownH);
     }
 }
 
@@ -3259,6 +3489,60 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ── Caret Position Helpers for Contenteditable ──
+function getCaretCharacterOffsetWithin(element) {
+    let caretOffset = 0;
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        if (element && element.contains(range.startContainer)) {
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(element);
+            preCaretRange.setEnd(range.startContainer, range.startOffset);
+            caretOffset = preCaretRange.toString().length;
+            return {
+                start: caretOffset,
+                isCollapsed: range.collapsed,
+                hasSelection: true
+            };
+        }
+    }
+    return null;
+}
+
+function setCaretPosition(element, offset) {
+    if (!element || offset === null || offset === undefined) return;
+    let charIndex = 0;
+    const range = document.createRange();
+    range.setStart(element, 0);
+    range.collapse(true);
+    const nodeStack = [element];
+    let node, foundStart = false;
+
+    while (!foundStart && (node = nodeStack.pop())) {
+        if (node.nodeType === 3) {
+            const nextCharIndex = charIndex + node.length;
+            if (offset >= charIndex && offset <= nextCharIndex) {
+                range.setStart(node, offset - charIndex);
+                range.collapse(true);
+                foundStart = true;
+            }
+            charIndex = nextCharIndex;
+        } else {
+            let i = node.childNodes.length;
+            while (i--) {
+                nodeStack.push(node.childNodes[i]);
+            }
+        }
+    }
+
+    if (foundStart) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+}
+
 // ── Raw edit box handlers ──
 async function pasteIntoRaw() {
     try {
@@ -3270,22 +3554,163 @@ async function pasteIntoRaw() {
     }
 }
 
-function appendToRaw(text) {
+function timeStringToSeconds(tsStr) {
+    if (!tsStr) return 0;
+    const clean = String(tsStr).replace(/[\[\]\s]/g, '');
+    const parts = clean.split(':').map(n => parseInt(n) || 0);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+}
+
+function appendToRaw(text, customTs = null) {
     text = text.trim(); if (!text) return;
     const reb = document.getElementById('rawEditBox');
-    const current = (reb.innerText || reb.textContent || '').trim();
-    reb.innerText = current ? current + ' ' + text : text;
+    if (!reb) return;
+
+    const ts = customTs || fmtTs(secondsElapsed);
+
+    // Check if user is currently focused/typing inside the raw box
+    const isFocused = (document.activeElement === reb || reb.contains(document.activeElement));
+    const savedCaret = isFocused ? getCaretCharacterOffsetWithin(reb) : null;
+
+    // Check if text already contains bracketed timestamp
+    const hasTag = /\[\d{2}:\d{2}:\d{2}\]/.test(text);
+    const tagHtml = hasTag ? '' : `<span class="ts-tag" contenteditable="false" data-ts="${ts}">[${ts}]</span>`;
+
+    const segSpan = document.createElement('span');
+    segSpan.className = 'transcript-phrase';
+    segSpan.setAttribute('data-ts', ts);
+    segSpan.setAttribute('data-time-sec', String(secondsElapsed));
+    segSpan.setAttribute('title', `⏱️ ${ts} (انقر مرتين للمزامنة مع الكتاب)`);
+    segSpan.innerHTML = `${tagHtml}${escHtml(text)} `;
+
+    reb.appendChild(segSpan);
     finalText = reb.innerText || reb.textContent;
-    const range = document.createRange(), sel = window.getSelection();
-    range.selectNodeContents(reb); range.collapse(false);
-    sel.removeAllRanges(); sel.addRange(range);
-    reb.scrollTop = reb.scrollHeight;
+
+    if (isFocused && savedCaret && savedCaret.hasSelection) {
+        // Keep user cursor undisturbed
+        setCaretPosition(reb, savedCaret.start);
+    } else {
+        reb.scrollTop = reb.scrollHeight;
+    }
+
     const addedWords = text.split(/\s+/).filter(w=>w).length;
     wordsSinceLastFormat += addedWords;
     updateWordCount();
     scheduleAutoFormat();
-    historyManager.pushState('إضافة نص في الصندوق');
+    historyManager.pushState('إضافة نص بالتوقيت في الصندوق');
 }
+
+// ── Bidirectional Time-Sync Jump Handlers ──
+function syncToBook(ts) {
+    if (!ts) return;
+    const targetSec = timeStringToSeconds(ts);
+    const bookContainer = document.getElementById('pagesContainer');
+    if (!bookContainer) return;
+
+    const bookElements = Array.from(bookContainer.querySelectorAll('[data-ts], .page-section, p, h1, h2, h3, h4'));
+    if (bookElements.length === 0) {
+        showToast(`التوقيت [${ts}] لم يُنسق بعد في صفحات الكتاب`, 'info', 'fa-clock');
+        return;
+    }
+
+    let closestEl = null;
+    let minDiff = Infinity;
+
+    bookElements.forEach(el => {
+        const elTs = el.getAttribute('data-ts') || (el.innerText.match(/\[(\d{2}:\d{2}:\d{2})\]/) || [])[1];
+        if (elTs) {
+            const sec = timeStringToSeconds(elTs);
+            const diff = Math.abs(sec - targetSec);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestEl = el;
+            }
+        }
+    });
+
+    if (!closestEl && bookElements.length > 0) {
+        closestEl = bookElements[0];
+    }
+
+    if (closestEl) {
+        if (window.innerWidth < 1024) switchMobileTab('book');
+        closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        closestEl.classList.remove('sync-pulse-highlight');
+        void closestEl.offsetWidth; // trigger reflow
+        closestEl.classList.add('sync-pulse-highlight');
+        setTimeout(() => closestEl.classList.remove('sync-pulse-highlight'), 2200);
+        showToast(`الانتقال في الكتاب إلى التوقيت [${ts}] ⏱️`, 'success', 'fa-arrow-left');
+    }
+}
+
+function syncToRaw(ts) {
+    if (!ts) return;
+    const targetSec = timeStringToSeconds(ts);
+    const reb = document.getElementById('rawEditBox');
+    if (!reb) return;
+
+    const rawPhrases = Array.from(reb.querySelectorAll('.transcript-phrase, [data-ts]'));
+    let closestEl = null;
+    let minDiff = Infinity;
+
+    if (rawPhrases.length > 0) {
+        rawPhrases.forEach(el => {
+            const elTs = el.getAttribute('data-ts');
+            if (elTs) {
+                const sec = timeStringToSeconds(elTs);
+                const diff = Math.abs(sec - targetSec);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestEl = el;
+                }
+            }
+        });
+    }
+
+    if (closestEl) {
+        if (window.innerWidth < 1024) switchMobileTab('raw');
+        closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        closestEl.classList.remove('sync-pulse-highlight');
+        void closestEl.offsetWidth;
+        closestEl.classList.add('sync-pulse-highlight');
+        setTimeout(() => closestEl.classList.remove('sync-pulse-highlight'), 2200);
+        showToast(`الانتقال في النص المفرغ إلى التوقيت [${ts}] ⏱️`, 'success', 'fa-arrow-right');
+    }
+}
+
+// ── Copy Handlers (With vs Clean Without Timestamps) ──
+function copyRawWithTimestamps() {
+    const reb = document.getElementById('rawEditBox');
+    if (!reb) return;
+    const phrases = reb.querySelectorAll('.transcript-phrase, [data-ts]');
+    let fullText = '';
+    if (phrases.length > 0) {
+        phrases.forEach(p => {
+            const ts = p.getAttribute('data-ts') || '00:00:00';
+            const clean = p.innerText.replace(/\[\d{2}:\d{2}:\d{2}\]/g, '').trim();
+            if (clean) fullText += `[${ts}] ${clean}\n`;
+        });
+    }
+    if (!fullText.trim()) {
+        fullText = reb.innerText || reb.textContent || '';
+    }
+    navigator.clipboard.writeText(fullText.trim()).then(() => {
+        showToast('تم نسخ النص المفرغ مع أختام التوقيت [00:00:00] بنجاح ✓', 'success', 'fa-clock');
+    });
+}
+
+function copyRawClean() {
+    const reb = document.getElementById('rawEditBox');
+    if (!reb) return;
+    const text = (reb.innerText || reb.textContent || '').replace(/\[\d{2}:\d{2}:\d{2}\]/g, '').replace(/\s+/g, ' ').trim();
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('تم نسخ النص الصافي بدون أي توقيت بنجاح ✓', 'success', 'fa-copy');
+    });
+}
+
+function copyRaw() { copyRawClean(); }
 
 function onRawInput() {
     const reb = document.getElementById('rawEditBox');
@@ -3748,11 +4173,12 @@ async function transcribeWithWhisper(blob) {
 }
 
 // ══════════════════════════════════════════════
-// TRANSCRIPT — immutable append
+// TRANSCRIPT — immutable append with timestamp
 // ══════════════════════════════════════════════
 function commitPhrase(phrase) {
     phrase = phrase.trim(); if (!phrase) return;
-    appendToRaw(phrase);
+    const ts = fmtTs(secondsElapsed);
+    appendToRaw(phrase, ts);
 }
 
 // ══════════════════════════════════════════════
@@ -3805,8 +4231,18 @@ function markActivePageFull() {
     }
 }
 
+function processTimestampsInFormattedHtml(html) {
+    if (!html) return html;
+    return html.replace(/\[(\d{2}:\d{2}:\d{2})\]/g, (match, ts) => {
+        return `<span class="ts-ref-tag" data-ts="${ts}" ondblclick="syncToRaw('${ts}')" title="⏱️ ${ts} (انقر مرتين للانتقال إلى النص المفرغ)"><span class="ts-tag">[${ts}]</span></span>`;
+    });
+}
+
 function addSectionToPages(heading, html) {
     document.getElementById('bookEmptyHint')?.remove();
+
+    // Process [HH:MM:SS] timestamps in formatted html
+    html = processTimestampsInFormattedHtml(html);
 
     // Wrap H3, H4, H5... and their paragraphs in level-3, level-4, level-5 containers
     html = wrapHeadingLevels(html);
@@ -3823,11 +4259,16 @@ function addSectionToPages(heading, html) {
     // Check if section contains an H2 heading (to draw top divider line)
     const hasH2 = temp.querySelector('h1, h2') !== null;
 
-    // Ensure each block heading has an anchor ID for navigation
+    // Ensure each block heading has an anchor ID and preserve timestamps
     blocks.forEach((blk, i) => {
         if (/^H[1-9]$/i.test(blk.tagName) || blk.querySelector?.('h1, h2, h3, h4, h5, h6')) {
             const h = /^H[1-9]$/i.test(blk.tagName) ? blk : blk.querySelector('h1, h2, h3, h4, h5, h6');
             if (h) h.id = h.id || ('heading-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5));
+        }
+        const tsMatch = blk.innerHTML.match(/data-ts="(\d{2}:\d{2}:\d{2})"/);
+        if (tsMatch) {
+            blk.setAttribute('data-ts', tsMatch[1]);
+            blk.setAttribute('title', `⏱️ ${tsMatch[1]} (انقر مرتين للانتقال إلى النص المفرغ)`);
         }
     });
 
@@ -4157,6 +4598,8 @@ async function callGPTFormatterWithStages(text, s) {
         stepList.push(`- **ملاحظة العناوين الجانبية**: اجعل مصفوفة "heading" فارغة [] لجميع الأقسام.`);
     }
 
+    stepList.push(`- **أختام التوقيت الزمني [HH:MM:SS]**: إذا كان النص المعطى يحتوي على أختام توقيت مثل [00:01:23]، فحافظ عليها كما هي وضع كل ختم في بداية الفقرة أو الجملة المرتبطة به (مثال: <p>[00:01:23] نص الفقرة...</p>).`);
+
     const prompt = `أنت محرر لغوي ومخرج نصوص وكتب أكاديمية محترف.
 مهمتك قراءة النص وتنفيذ خطوات المعالجة والتنسيق التالية بالترتيب خطوة تلو الأخرى:
 
@@ -4167,7 +4610,7 @@ ${stepList.join('\n')}
   "sections": [
     {
       "heading": ${s.sideHeadings ? '["عنوان جانبي"]' : '[]'},
-      "html": "${s.mainHeadings ? '<h2>عنوان رئيسي</h2>' : ''}<p>نص الفقرة ${s.emphasis ? '<strong>المصطلح</strong>' : ''}...</p>"
+      "html": "${s.mainHeadings ? '<h2>عنوان رئيسي</h2>' : ''}<p>[00:00:00] نص الفقرة ${s.emphasis ? '<strong>المصطلح</strong>' : ''}...</p>"
     }
   ]
 }
