@@ -3879,6 +3879,14 @@ function seekAndPlayAudioFile(ts) {
     if (isNaN(targetSec)) return;
 
     fileAudioEl.currentTime = targetSec;
+
+    // Reset recording cycle so chunks start cleanly at the new timestamp
+    if (isListening && mediaRecorder && mediaRecorder.state === 'recording') {
+        try {
+            mediaRecorder.stop();
+        } catch(e){}
+    }
+
     const fpi = document.getElementById('filePlayIcon');
     const fpb = document.getElementById('filePlayerBar');
 
@@ -3893,6 +3901,7 @@ function seekAndPlayAudioFile(ts) {
                 fpb.classList.add('ring-2', 'ring-blue-500');
                 setTimeout(() => fpb.classList.remove('ring-2', 'ring-blue-500'), 1500);
             }
+            if (typeof updateFileModeBadge === 'function') updateFileModeBadge();
         }).catch(err => {
             console.warn('Audio seek play notice:', err);
         });
@@ -4453,7 +4462,19 @@ function setAudioPlaybackRate(rate) {
     showToast(`تم ضبط سرعة الصوت إلى ${rate}x ⚡`, 'info', 'fa-gauge-high');
 }
 
-let maxTranscribedTimeSec = 0;
+function getLastTranscribedTimestampSec() {
+    const rawBox = document.getElementById('rawEditBox');
+    if (!rawBox) return 0;
+    const allPhrases = rawBox.querySelectorAll('.transcript-phrase, [data-ts]');
+    if (allPhrases.length > 0) {
+        for (let i = allPhrases.length - 1; i >= 0; i--) {
+            const el = allPhrases[i];
+            const ts = el.getAttribute('data-ts') || (el.innerText.match(/\[(\d{2}:\d{2}:\d{2})\]/) || [])[1];
+            if (ts) return timeStringToSeconds(ts);
+        }
+    }
+    return 0;
+}
 
 function updateFileModeBadge() {
     const badge = document.getElementById('fileModeBadge');
@@ -4461,23 +4482,22 @@ function updateFileModeBadge() {
     
     badge.classList.remove('hidden');
     const c = fileAudioEl.currentTime || 0;
-    if (c < (maxTranscribedTimeSec - 1)) {
+    const lastWrittenSec = getLastTranscribedTimestampSec();
+
+    if (lastWrittenSec > 0 && c < lastWrittenSec) {
         badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-950/80 text-amber-300 border border-amber-700/80 flex items-center gap-1';
-        badge.innerHTML = '<i class="fa-solid fa-headphones"></i> استماع ومراجعة (لا يُكرر التفريغ)';
+        badge.innerHTML = `<i class="fa-solid fa-headphones"></i> مراجعة واستماع (آخر تفريغ: ${fmtTs(lastWrittenSec)})`;
     } else {
         badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-blue-950/80 text-blue-300 border border-blue-700/80 flex items-center gap-1';
-        badge.innerHTML = '<i class="fa-solid fa-microphone"></i> تفريغ حي';
+        badge.innerHTML = '<i class="fa-solid fa-microphone"></i> تفريغ حي جديد';
     }
 }
 
 function forceTranscribeFromCurrentPos() {
     if (!fileAudioEl) return;
-    const c = fileAudioEl.currentTime || 0;
-    maxTranscribedTimeSec = c;
-    const currProj = typeof projectManager !== 'undefined' ? projectManager.currentProject : null;
-    if (currProj) currProj.maxTranscribedTimeSec = maxTranscribedTimeSec;
+    const c = Math.floor(fileAudioEl.currentTime || 0);
     updateFileModeBadge();
-    showToast(`تم ضبط موضع التفريغ ليعمل مجدداً بدءاً من [${fmtTs(Math.floor(c))}] 🔄`, 'info', 'fa-rotate');
+    showToast(`تم تعيين موضع التفريغ ليعمل بدءاً من [${fmtTs(c)}] 🔄`, 'info', 'fa-rotate');
 }
 
 function initFileListeners() {
@@ -4519,13 +4539,12 @@ function startRecorderEngine(stream) {
     displayStream = stream;
     let localRecorder = null;
     let localChunks = [];
-    let cycleStartSec = 0;
 
     function startCycle() {
         if (!isListening || !displayStream) return;
         
-        // Accurate START timestamp for this chunk
-        cycleStartSec = (fileAudioEl && !isNaN(fileAudioEl.currentTime)) ? Math.max(0, Math.floor(fileAudioEl.currentTime)) : secondsElapsed;
+        // Exact START timestamp strictly captured for this specific chunk
+        const thisChunkStartSec = (fileAudioEl && !isNaN(fileAudioEl.currentTime)) ? Math.max(0, Math.floor(fileAudioEl.currentTime)) : secondsElapsed;
 
         const mime = getSupportedMime();
         try {
@@ -4541,12 +4560,7 @@ function startRecorderEngine(stream) {
             if (localChunks.length > 0) {
                 const blob = new Blob(localChunks, { type: localRecorder.mimeType || 'audio/webm' });
                 if (blob.size > 1500) {
-                    // If audio is playing earlier in review/verification mode, skip re-transcribing it!
-                    if (fileAudioEl && fileAudioEl.src && cycleStartSec < (maxTranscribedTimeSec - 1)) {
-                        console.log(`Review playback at [${fmtTs(cycleStartSec)}], skipping duplicate transcription (max: [${fmtTs(maxTranscribedTimeSec)}])`);
-                        return;
-                    }
-                    transcribeWithWhisper(blob, cycleStartSec).catch(err => console.warn('Whisper chunk error:', err));
+                    transcribeWithWhisper(blob, thisChunkStartSec).catch(err => console.warn('Whisper chunk error:', err));
                 }
             }
         };
@@ -4644,17 +4658,18 @@ function commitPhrase(phrase, startSec = null) {
     
     // Exact START time of the spoken chunk
     const finalStartSec = (startSec !== null && !isNaN(startSec)) ? Math.max(0, Math.floor(startSec)) : secondsElapsed;
-    const ts = fmtTs(finalStartSec);
+    
+    // Check the timestamp of the last written sentence in the transcript
+    const lastWrittenSec = getLastTranscribedTimestampSec();
 
-    // Update the maximum transcribed time for file audio
-    const currentAudioTime = (fileAudioEl && !isNaN(fileAudioEl.currentTime)) ? fileAudioEl.currentTime : (finalStartSec + 10);
-    maxTranscribedTimeSec = Math.max(maxTranscribedTimeSec, currentAudioTime);
-
-    const currProj = typeof projectManager !== 'undefined' ? projectManager.currentProject : null;
-    if (currProj) {
-        currProj.maxTranscribedTimeSec = maxTranscribedTimeSec;
+    // If audio is playing before the end of the transcript (reviewing old speech), skip appending
+    if (fileAudioEl && fileAudioEl.src && lastWrittenSec > 0 && finalStartSec < lastWrittenSec) {
+        console.log(`Review playback at [${fmtTs(finalStartSec)}], skipped because last transcribed sentence is at [${fmtTs(lastWrittenSec)}].`);
+        updateFileModeBadge();
+        return;
     }
 
+    const ts = fmtTs(finalStartSec);
     appendToRaw(phrase, ts);
     updateFileModeBadge();
 }
